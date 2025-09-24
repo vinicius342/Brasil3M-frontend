@@ -6,16 +6,57 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Store, ArrowLeft, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const { resetPassword } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Password reset request for:", email);
-    // Aqui você adicionaria a lógica para enviar o email de recuperação
-    setIsSubmitted(true);
+    
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, digite seu email."
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      await resetPassword(email);
+      setIsSubmitted(true);
+      toast({
+        title: "Email enviado!",
+        description: "Verifique sua caixa de entrada para redefinir sua senha."
+      });
+    } catch (error: any) {
+      let errorMessage = "Erro ao enviar email. Tente novamente.";
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = "Email não encontrado. Verifique se digitou corretamente.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Email inválido.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Muitas tentativas. Tente novamente mais tarde.";
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: errorMessage
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -112,8 +153,8 @@ const ForgotPassword = () => {
                 />
               </div>
 
-              <Button type="submit" className="w-full">
-                Enviar link de recuperação
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
               </Button>
             </form>
 

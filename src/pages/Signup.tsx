@@ -1,14 +1,18 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Store, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
 
 const Signup = () => {
+  useRedirectIfAuthenticated();
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -19,6 +23,11 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -28,18 +37,77 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validações
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, preencha todos os campos."
+      });
+      return;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
-      alert("As senhas não coincidem!");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "As senhas não coincidem!"
+      });
       return;
     }
+    
+    if (formData.password.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A senha deve ter pelo menos 6 caracteres."
+      });
+      return;
+    }
+    
     if (!acceptTerms) {
-      alert("Você deve aceitar os termos e condições!");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Você deve aceitar os termos e condições!"
+      });
       return;
     }
-    console.log("Signup attempt:", formData);
-    // Aqui você adicionaria a lógica de cadastro
+
+    setLoading(true);
+    
+    try {
+      const displayName = `${formData.firstName} ${formData.lastName}`;
+      await register(formData.email, formData.password, displayName);
+      
+      toast({
+        title: "Sucesso!",
+        description: "Conta criada com sucesso! Bem-vindo!"
+      });
+      
+      navigate("/profile");
+    } catch (error: any) {
+      let errorMessage = "Erro ao criar conta. Tente novamente.";
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Este email já está em uso.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Email inválido.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "A senha deve ter pelo menos 6 caracteres.";
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro no cadastro",
+        description: errorMessage
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -176,8 +244,8 @@ const Signup = () => {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full">
-                Criar conta
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Criando conta..." : "Criar conta"}
               </Button>
             </form>
 

@@ -1,21 +1,68 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Store, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
 
 const Login = () => {
+  useRedirectIfAuthenticated();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login attempt:", { email, password });
-    // Aqui você adicionaria a lógica de autenticação
+    
+    if (!email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, preencha todos os campos."
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      await login(email, password);
+      toast({
+        title: "Sucesso!",
+        description: "Login realizado com sucesso."
+      });
+      navigate("/profile");
+    } catch (error: any) {
+      let errorMessage = "Erro ao fazer login. Tente novamente.";
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = "Usuário não encontrado.";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "Senha incorreta.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Email inválido.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Muitas tentativas. Tente novamente mais tarde.";
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro no login",
+        description: errorMessage
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -89,8 +136,8 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Entrar
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
 
