@@ -9,6 +9,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -36,6 +37,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const register = async (email: string, password: string, displayName: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(user, { displayName });
+    // Salvar dados no Firestore
+    const db = getFirestore();
+    await setDoc(doc(db, "users", user.uid), {
+      displayName,
+      email: user.email,
+      role: "client",
+      status: "active",
+      createdAt: new Date()
+    });
   };
 
   const login = async (email: string, password: string) => {
@@ -51,21 +61,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
       
-      // Log universal do usuário logado
       if (user) {
-        console.log("👤 Usuário logado:", {
+        let role = null;
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            role = userDoc.data().role || null;
+          }
+        } catch (err) {
+          console.error('Erro ao buscar role do usuário:', err);
+        }
+        console.log('👤 Usuário logado:', {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName,
           emailVerified: user.emailVerified,
           creationTime: user.metadata.creationTime,
+          role,
         });
       } else {
-        console.log("🚪 Usuário não está logado");
+        console.log('🚪 Usuário não está logado');
       }
     });
 

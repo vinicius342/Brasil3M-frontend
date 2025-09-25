@@ -1,19 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { User, Package, Heart, CreditCard, MapPin, ShoppingBag, Store, Star } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+import Header from "@/components/Header";
 
 const Dashboard = () => {
-  const [user] = useState({
-    name: "João Silva",
-    email: "joao@email.com",
-    avatar: "/placeholder.svg",
-    orders: 12,
-    wishlist: 5,
-    reviews: 8
+  const { currentUser, logout } = useAuth();
+  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState({
+    displayName: "",
+    email: "",
+    avatar: "",
+    orders: 0,
+    wishlist: 0,
+    reviews: 0
   });
 
   const recentOrders = [
@@ -22,8 +27,31 @@ const Dashboard = () => {
     { id: "003", date: "2024-01-05", status: "Preparando", total: "R$ 89,90", items: 3 }
   ];
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (currentUser) {
+        const db = getFirestore();
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUser({
+            displayName: currentUser.displayName || "",
+            email: currentUser.email || "",
+            avatar: data.avatar || "/placeholder.svg",
+            orders: data.orders || 0,
+            wishlist: data.wishlist || 0,
+            reviews: data.reviews || 0
+          });
+          setRole(data.role || null);
+        }
+      }
+    };
+    fetchUserData();
+  }, [currentUser]);
+
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Minha Conta</h1>
@@ -40,7 +68,7 @@ const Dashboard = () => {
                     <User className="h-8 w-8 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">{user.name}</h3>
+                    <h3 className="font-semibold text-foreground">{user.displayName}</h3>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
@@ -62,6 +90,14 @@ const Dashboard = () => {
                     <Store className="h-4 w-4" />
                     <span>Vender</span>
                   </Link>
+                  <Button variant="outline" className="w-full mt-2" onClick={async () => { await logout(); }}>
+                    Sair
+                  </Button>
+                  {role === "admin" && (
+                    <Button asChild variant="outline" className="w-full mt-2">
+                      <Link to="/admin">Acessar Admin</Link>
+                    </Button>
+                  )}
                 </nav>
               </CardContent>
             </Card>
@@ -129,7 +165,7 @@ const Dashboard = () => {
                         </Link>
                       </Button>
                       <Button variant="outline" className="h-20 flex-col" asChild>
-                        <Link to="/profile">
+                        <Link to="/my-account">
                           <User className="h-6 w-6 mb-2" />
                           Editar Perfil
                         </Link>

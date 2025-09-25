@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Heart, ShoppingCart, Search, Trash2, Star } from "lucide-react";
+import Header from "@/components/Header";
 
 const Wishlist = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -91,6 +92,7 @@ const Wishlist = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">

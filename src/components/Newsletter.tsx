@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const Newsletter = () => {
   return (
-    <section className="py-12 md:py-20 bg-gradient-to-r from-ecommerce-navy to-ecommerce-navy-light">
+    <section className="py-12 md:py-20 bg-gradient-to-r from-ecommerce-navy to-ecommerce-navy-light bg-black">
       <div className="container mx-auto px-4">
         <Card className="max-w-4xl mx-auto border-0 bg-white/10 backdrop-blur-sm">
           <CardContent className="p-6 md:p-12 text-center">

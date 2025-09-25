@@ -63,16 +63,18 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Cores personalizadas para e-commerce
-				ecommerce: {
+				// Cores personalizadas Brasil3M
+				brasil3m: {
 					black: '#000000',
-					'black-light': '#333333',
-					'black-dark': '#000000',
-					coral: '#000000',
-					navy: '#2C3E50',
-					'navy-light': '#34495E',
-					cream: '#FDF5E6',
-					sage: '#9CAF88'
+					'black-light': '#1a1a1a',
+					'black-medium': '#333333',
+					gold: '#DAA520',
+					'gold-light': '#FFD700',
+					'gold-dark': '#B8860B',
+					white: '#FFFFFF',
+					'white-soft': '#FAFAFA',
+					'gray-light': '#F5F5F5',
+					'gray-medium': '#CCCCCC'
 				}
 			},
 			borderRadius: {

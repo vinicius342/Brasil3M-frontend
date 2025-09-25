@@ -41,7 +41,7 @@ const Login = () => {
         title: "Sucesso!",
         description: "Login realizado com sucesso."
       });
-      navigate("/profile");
+      navigate("/");
     } catch (error: any) {
       let errorMessage = "Erro ao fazer login. Tente novamente.";
       

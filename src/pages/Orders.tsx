@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Search, Eye, Truck, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import Header from "@/components/Header";
 
 const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +103,7 @@ const Orders = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Meus Pedidos</h1>

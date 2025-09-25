@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, MapPin, Truck, Shield, Plus } from "lucide-react";
+import Header from "@/components/Header";
 
 const Checkout = () => {
   const [step, setStep] = useState(1);
@@ -93,6 +94,7 @@ const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Finalizar Compra</h1>

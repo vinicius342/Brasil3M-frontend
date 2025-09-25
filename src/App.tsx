@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +21,8 @@ import Seller from "./pages/Seller";
 import AddProduct from "./pages/AddProduct";
 import ManageProducts from "./pages/ManageProducts";
 import NotFound from "./pages/NotFound";
+import { PrivateRoute } from "@/routes/PrivateRoute";
+import { AdminRoute } from "@/routes/AdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -39,16 +40,16 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/my-account" element={<MyAccount />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/my-account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />
+            <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+            <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
+            <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
             <Route path="/about" element={<About />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/seller" element={<Seller />} />
-            <Route path="/seller/add-product" element={<AddProduct />} />
-            <Route path="/seller/manage-products" element={<ManageProducts />} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+            <Route path="/seller" element={<PrivateRoute><Seller /></PrivateRoute>} />
+            <Route path="/seller/add-product" element={<PrivateRoute><AddProduct /></PrivateRoute>} />
+            <Route path="/seller/manage-products" element={<PrivateRoute><ManageProducts /></PrivateRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
