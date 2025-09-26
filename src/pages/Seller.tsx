@@ -1,23 +1,207 @@
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Package, DollarSign, Eye, Edit, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { 
+  getFirestore, 
+  collection, 
+  getDocs, 
+  query, 
+  where,
+  onSnapshot,
+  orderBy,
+  limit,
+  addDoc,
+  serverTimestamp
+} from "firebase/firestore";
 
 const Seller = () => {
-  const products = [
-    { id: 1, name: "Smartphone XYZ", price: "R$ 899,00", stock: 15, status: "active", sales: 23 },
-    { id: 2, name: "Notebook ABC", price: "R$ 2.499,00", stock: 8, status: "active", sales: 12 },
-    { id: 3, name: "Headphone DEF", price: "R$ 299,00", stock: 0, status: "inactive", sales: 45 },
-  ];
+  const { currentUser } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    description: "",
+    price: "",
+    stock: "",
+    categoryId: "",
+    images: ""
+  });
+  const db = getFirestore();
 
+  // Buscar categorias disponíveis
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const q = query(collection(db, "categories"), where("status", "==", "active"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const categoriesList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setCategories(categoriesList);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("Erro ao buscar categorias:", error);
+      }
+    };
+
+    fetchCategories();
+  }, [db]);
+
+  // Buscar produtos do vendedor
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchProducts = async () => {
+      try {
+        const q = query(
+          collection(db, "products"), 
+          where("sellerId", "==", currentUser.uid),
+          orderBy("createdAt", "desc"),
+          limit(5)
+        );
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const productsList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            price: `R$ ${doc.data().price?.toFixed(2).replace('.', ',') || '0,00'}`,
+            sales: doc.data().salesCount || 0
+          }));
+          setProducts(productsList);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("Erro ao buscar produtos:", error);
+      }
+    };
+
+    fetchProducts();
+  }, [currentUser, db]);
+
+  // Buscar vendas do vendedor
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchSales = async () => {
+      try {
+        const q = query(
+          collection(db, "orders"), 
+          where("sellerId", "==", currentUser.uid),
+          orderBy("createdAt", "desc"),
+          limit(10)
+        );
+        
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+          const salesList = [];
+          
+          for (const orderDoc of snapshot.docs) {
+            const orderData = orderDoc.data();
+            
+            // Buscar dados do comprador
+            let buyerName = "N/A";
+            try {
+              const buyerDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", orderData.buyerId)));
+              if (!buyerDoc.empty) {
+                const buyer = buyerDoc.docs[0].data();
+                buyerName = `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.email || "Cliente";
+              }
+            } catch (error) {
+              console.error("Erro ao buscar comprador:", error);
+            }
+
+            salesList.push({
+              id: orderDoc.id,
+              products: orderData.items || [],
+              total: `R$ ${orderData.totalAmount?.toFixed(2).replace('.', ',') || '0,00'}`,
+              buyer: buyerName,
+              address: orderData.shippingAddress ? 
+                `${orderData.shippingAddress.street}, ${orderData.shippingAddress.number}, ${orderData.shippingAddress.city} - ${orderData.shippingAddress.state}` : 
+                "Endereço não informado",
+              status: orderData.status === "delivered" ? "Entregue" : 
+                     orderData.status === "shipping" ? "A caminho" : 
+                     orderData.status === "cancelled" ? "Cancelada" : "Processando",
+              date: orderData.createdAt?.toDate().toLocaleDateString('pt-BR') || new Date().toLocaleDateString('pt-BR')
+            });
+          }
+          
+          setSales(salesList);
+          setLoading(false);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("Erro ao buscar vendas:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchSales();
+  }, [currentUser, db]);
+
+  // Função para adicionar produto
+  const addProduct = async () => {
+    if (!newProduct.name.trim() || !newProduct.description.trim() || !newProduct.price || !newProduct.stock || !newProduct.categoryId) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "products"), {
+        name: newProduct.name,
+        description: newProduct.description,
+        price: parseFloat(newProduct.price),
+        stock: parseInt(newProduct.stock),
+        categoryId: newProduct.categoryId,
+        images: newProduct.images ? newProduct.images.split(',').map(url => url.trim()) : [],
+        sellerId: currentUser.uid,
+        status: "active",
+        salesCount: 0,
+        views: 0,
+        createdAt: serverTimestamp()
+      });
+
+      setNewProduct({
+        name: "",
+        description: "",
+        price: "",
+        stock: "",
+        categoryId: "",
+        images: ""
+      });
+      setIsAddProductOpen(false);
+    } catch (error) {
+      console.error("Erro ao adicionar produto:", error);
+      alert("Erro ao adicionar produto. Tente novamente.");
+    }
+  };
+
+  // Calcular estatísticas em tempo real
   const stats = {
-    totalProducts: 15,
-    totalSales: "R$ 12.450,00",
-    pendingOrders: 8,
-    totalViews: 1250
+    totalProducts: products.length,
+    totalSales: sales.reduce((acc, sale) => {
+      const amount = parseFloat(sale.total.replace('R$ ', '').replace(',', '.'));
+      return acc + amount;
+    }, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    pendingOrders: sales.filter(sale => sale.status === "Processando" || sale.status === "A caminho").length,
+    totalViews: products.reduce((acc, product) => acc + (product.views || 0), 0)
   };
 
   return (
@@ -30,12 +214,102 @@ const Seller = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Painel do Vendedor</h1>
             <p className="text-muted-foreground">Gerencie seus produtos e vendas</p>
           </div>
-          <Link to="/seller/add-product">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Produto
-            </Button>
-          </Link>
+          <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Produto
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Adicionar Novo Produto</DialogTitle>
+                <DialogDescription>
+                  Preencha os dados para adicionar um novo produto ao seu catálogo.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-name" className="text-right">Nome *</Label>
+                  <Input
+                    id="product-name"
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Ex: Smartphone Samsung Galaxy"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-description" className="text-right">Descrição *</Label>
+                  <Textarea
+                    id="product-description"
+                    value={newProduct.description}
+                    onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Descreva as características do produto..."
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-price" className="text-right">Preço *</Label>
+                  <Input
+                    id="product-price"
+                    type="number"
+                    step="0.01"
+                    value={newProduct.price}
+                    onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                    className="col-span-3"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-stock" className="text-right">Estoque *</Label>
+                  <Input
+                    id="product-stock"
+                    type="number"
+                    value={newProduct.stock}
+                    onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Quantidade disponível"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-category" className="text-right">Categoria *</Label>
+                  <Select
+                    value={newProduct.categoryId}
+                    onValueChange={(value) => setNewProduct({...newProduct, categoryId: value})}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product-images" className="text-right">Imagens</Label>
+                  <Input
+                    id="product-images"
+                    value={newProduct.images}
+                    onChange={(e) => setNewProduct({...newProduct, images: e.target.value})}
+                    className="col-span-3"
+                    placeholder="URLs das imagens separadas por vírgula"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddProductOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={addProduct}>Adicionar Produto</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -46,7 +320,7 @@ const Seller = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalProducts}</div>
-              <p className="text-xs text-muted-foreground">+2 este mês</p>
+              <p className="text-xs text-muted-foreground">produtos cadastrados</p>
             </CardContent>
           </Card>
 
@@ -57,7 +331,7 @@ const Seller = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalSales}</div>
-              <p className="text-xs text-muted-foreground">+15% este mês</p>
+              <p className="text-xs text-muted-foreground">receita total</p>
             </CardContent>
           </Card>
 
@@ -68,7 +342,7 @@ const Seller = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.pendingOrders}</div>
-              <p className="text-xs text-muted-foreground">Requer atenção</p>
+              <p className="text-xs text-muted-foreground">pedidos pendentes</p>
             </CardContent>
           </Card>
 
@@ -79,7 +353,7 @@ const Seller = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalViews}</div>
-              <p className="text-xs text-muted-foreground">+8% esta semana</p>
+              <p className="text-xs text-muted-foreground">visualizações totais</p>
             </CardContent>
           </Card>
         </div>
@@ -87,7 +361,7 @@ const Seller = () => {
         <Card>
           <CardHeader className="flex justify-between items-center">
             <CardTitle>Meus Produtos</CardTitle>
-            <Link to="/seller/manage-products">
+            <Link to="/manage-products">
               <Button variant="outline">Ver Todos</Button>
             </Link>
           </CardHeader>
@@ -96,6 +370,7 @@ const Seller = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produto</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Preço</TableHead>
                   <TableHead>Estoque</TableHead>
                   <TableHead>Status</TableHead>
@@ -104,36 +379,109 @@ const Seller = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>{product.price}</TableCell>
-                    <TableCell>
-                      <Badge variant={product.stock > 0 ? "default" : "destructive"}>
-                        {product.stock} unidades
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={product.status === "active" ? "default" : "secondary"}>
-                        {product.status === "active" ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{product.sales} vendas</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {products.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Nenhum produto encontrado. 
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto text-primary hover:underline ml-1"
+                        onClick={() => setIsAddProductOpen(true)}
+                      >
+                        Adicione seu primeiro produto
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  products.map((product) => {
+                    const category = categories.find(cat => cat.id === product.categoryId);
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name || product.title}</TableCell>
+                        <TableCell>{category ? category.name : "-"}</TableCell>
+                        <TableCell>{product.price}</TableCell>
+                        <TableCell>
+                          <Badge variant={(product.stock || product.quantity) > 0 ? "default" : "destructive"}>
+                            {product.stock || product.quantity || 0} unidades
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={product.status === "active" ? "default" : "secondary"}>
+                            {product.status === "active" ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{product.sales} vendas</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-8">
+          <CardHeader className="flex justify-between items-center">
+            <CardTitle>Minhas Vendas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produtos</TableHead>
+                  <TableHead>Unidades</TableHead>
+                  <TableHead>Valor Total</TableHead>
+                  <TableHead>Comprador</TableHead>
+                  <TableHead>Endereço</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sales.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Nenhuma venda encontrada ainda.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sales.map((sale) => (
+                    <TableRow key={sale.id}>
+                      <TableCell>
+                        {sale.products.map((p, idx) => (
+                          <div key={idx}>{p.name || p.productName || 'Produto'}</div>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        {sale.products.map((p, idx) => (
+                          <div key={idx}>{p.quantity || p.units || 1}</div>
+                        ))}
+                      </TableCell>
+                      <TableCell>{sale.total}</TableCell>
+                      <TableCell>{sale.buyer}</TableCell>
+                      <TableCell className="max-w-xs truncate">{sale.address}</TableCell>
+                      <TableCell>
+                        <Badge variant={sale.status === "Entregue" ? "default" : sale.status === "A caminho" ? "secondary" : sale.status === "Cancelada" ? "destructive" : "outline"}>
+                          {sale.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{sale.date}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

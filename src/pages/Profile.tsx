@@ -86,7 +86,7 @@ const Dashboard = () => {
                     <Heart className="h-4 w-4" />
                     <span>Lista de Desejos</span>
                   </Link>
-                  <Link to="/seller-profile" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
+                  <Link to="/seller" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
                     <Store className="h-4 w-4" />
                     <span>Vender</span>
                   </Link>

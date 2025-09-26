@@ -163,18 +163,7 @@ const Admin = () => {
           </div>
         )}
 
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalSales}</div>
-              <p className="text-xs text-muted-foreground">+12% em relação ao mês anterior</p>
-            </CardContent>
-          </Card>
-
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Vendedores</CardTitle>
@@ -194,17 +183,6 @@ const Admin = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalUsers}</div>
               <p className="text-xs text-muted-foreground">+45 novos este mês</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalRevenue}</div>
-              <p className="text-xs text-muted-foreground">+8% em relação ao mês anterior</p>
             </CardContent>
           </Card>
         </div>
@@ -362,19 +340,6 @@ const Admin = () => {
                             <SelectContent>
                               <SelectItem value="active">Ativo</SelectItem>
                               <SelectItem value="inactive">Inativo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <Select
-                            value={user.role || "client"}
-                            onValueChange={(value) => updateUserType(user.id, value)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="client">Cliente</SelectItem>
-                              <SelectItem value="seller">Vendedor</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
