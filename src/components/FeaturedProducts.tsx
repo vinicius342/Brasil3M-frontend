@@ -106,9 +106,11 @@ const FeaturedProducts = () => {
           </div>
         )}
         <div className="text-center mt-8 md:mt-12">
-          <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white w-full sm:w-auto">
-            Ver Todos os Produtos
-          </Button>
+          <Link to="/produtos">
+            <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white w-full sm:w-auto">
+              Ver Todos os Produtos
+            </Button>
+          </Link>
         </div>
       </div>
     </section>

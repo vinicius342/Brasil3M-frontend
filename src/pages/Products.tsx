@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ShoppingCart, Filter, Grid3X3, List, Star, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, getDocs, limit, startAfter, DocumentData, QueryDocumentSnapshot, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, limit, startAfter, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 interface Product {
   id: string;
@@ -23,7 +21,7 @@ interface Product {
   badge?: string;
   rating: number;
   brand: string;
-  categoryId: string;
+  category: string;
   description: string;
   stock: number;
   createdAt: any;
@@ -36,20 +34,14 @@ const categoryTitles = {
   "casa-jardim": "Casa & Jardim",
   "esportes": "Esportes",
   "beleza": "Beleza",
-  "livros": "Livros",
-  "brinquedos": "Brinquedos",
-  "automotivo": "Automotivo",
-  "ferramentas": "Ferramentas",
-  "saude": "Saúde",
-  "pets": "Pets",
-  "informatica": "Informática"
+  "livros": "Livros"
 };
 
-const Category = () => {
-  const { slug } = useParams();
-  const categorySlug = slug || "eletronicos";
+const Products = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryFilter = searchParams.get("categoria") || "";
+  const searchQuery = searchParams.get("q") || "";
   
-  const [categoryName, setCategoryName] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +49,9 @@ const Category = () => {
   const [sortBy, setSortBy] = useState("relevance");
   const [priceRange, setPriceRange] = useState([0, 5000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    categoryFilter ? [categoryFilter] : []
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -64,85 +59,37 @@ const Category = () => {
 
   const productsPerPage = 12;
 
-  // Função para buscar informações da categoria
-  const fetchCategoryInfo = async () => {
-    try {
-      // Primeiro, verificar se é um slug conhecido
-      if (categoryTitles[categorySlug as keyof typeof categoryTitles]) {
-        setCategoryName(categoryTitles[categorySlug as keyof typeof categoryTitles]);
-        return;
-      }
-
-      // Se não é um slug conhecido, pode ser um ID de categoria
-      // Tentar buscar a categoria no Firestore
-      const categoryDoc = await getDoc(doc(db, "categories", categorySlug));
-      if (categoryDoc.exists()) {
-        setCategoryName(categoryDoc.data().name || categorySlug);
-      } else {
-        // Fallback: capitalizar o slug
-        setCategoryName(categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1));
-      }
-    } catch (err) {
-      console.error("Erro ao buscar categoria:", err);
-      setCategoryName(categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1));
-    }
-  };
-
   const fetchProducts = async (pageNum: number = 1) => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log("Buscando produtos para categoria:", categorySlug);
-
-      // Construir query base
       let q = query(
         collection(db, "products"),
-        where("categoryId", "==", categorySlug),
         limit(productsPerPage)
       );
+
+      // Filtro por categoria se especificado
+      if (selectedCategories.length > 0) {
+        q = query(q, where("category", "in", selectedCategories));
+      }
 
       // Adicionar ordenação baseada no sortBy
       switch (sortBy) {
         case "price-asc":
-          q = query(
-            collection(db, "products"),
-            where("categoryId", "==", categorySlug),
-            orderBy("price", "asc"),
-            limit(productsPerPage)
-          );
+          q = query(q, orderBy("price", "asc"));
           break;
         case "price-desc":
-          q = query(
-            collection(db, "products"),
-            where("categoryId", "==", categorySlug),
-            orderBy("price", "desc"),
-            limit(productsPerPage)
-          );
+          q = query(q, orderBy("price", "desc"));
           break;
         case "rating":
-          q = query(
-            collection(db, "products"),
-            where("categoryId", "==", categorySlug),
-            orderBy("rating", "desc"),
-            limit(productsPerPage)
-          );
+          q = query(q, orderBy("rating", "desc"));
           break;
         case "newest":
-          q = query(
-            collection(db, "products"),
-            where("categoryId", "==", categorySlug),
-            orderBy("createdAt", "desc"),
-            limit(productsPerPage)
-          );
+          q = query(q, orderBy("createdAt", "desc"));
           break;
         default: // relevance
-          q = query(
-            collection(db, "products"),
-            where("categoryId", "==", categorySlug),
-            orderBy("salesCount", "desc"),
-            limit(productsPerPage)
-          );
+          q = query(q, orderBy("salesCount", "desc"));
       }
 
       // Paginação
@@ -150,36 +97,16 @@ const Category = () => {
         q = query(q, startAfter(lastDoc));
       }
 
-      console.log("Executando query...");
       const querySnapshot = await getDocs(q);
-      console.log("Produtos encontrados:", querySnapshot.size);
-      
       const fetchedProducts: Product[] = [];
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log("Produto encontrado:", doc.id, data.name, "categoryId:", data.categoryId);
         fetchedProducts.push({
           id: doc.id,
           ...data
         } as Product);
       });
-
-      // Se não encontrou produtos, tentar busca alternativa sem filtro de categoria (para debug)
-      if (fetchedProducts.length === 0 && pageNum === 1) {
-        console.log("Tentando busca alternativa sem filtro de categoria...");
-        const alternativeQuery = query(
-          collection(db, "products"),
-          limit(5)
-        );
-        const altSnapshot = await getDocs(alternativeQuery);
-        console.log("Total de produtos no banco:", altSnapshot.size);
-        
-        altSnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log("Produto disponível:", doc.id, data.name, "categoryId:", data.categoryId);
-        });
-      }
 
       if (pageNum === 1) {
         setProducts(fetchedProducts);
@@ -196,20 +123,20 @@ const Category = () => {
 
     } catch (err) {
       console.error("Erro ao buscar produtos:", err);
-      setError(`Erro ao carregar produtos da categoria "${categorySlug}". Tente novamente.`);
+      setError("Erro ao carregar produtos. Tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCategoryInfo();
     setCurrentPage(1);
     setLastDoc(null);
     fetchProducts(1);
-  }, [categorySlug, sortBy]);
+  }, [sortBy, selectedCategories]);
 
   const brands = [...new Set(products.map(p => p.brand))];
+  const categories = [...new Set(products.map(p => p.category))];
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands(prev => 
@@ -219,11 +146,57 @@ const Category = () => {
     );
   };
 
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => {
+      const newCategories = prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category];
+      
+      // Atualizar URL params
+      const newSearchParams = new URLSearchParams(searchParams);
+      if (newCategories.length > 0) {
+        newSearchParams.set("categoria", newCategories.join(","));
+      } else {
+        newSearchParams.delete("categoria");
+      }
+      setSearchParams(newSearchParams);
+      
+      return newCategories;
+    });
+  };
+
   const filteredProducts = products.filter(product => {
     const inPriceRange = product.price >= priceRange[0] && product.price <= priceRange[1];
     const inSelectedBrands = selectedBrands.length === 0 || selectedBrands.includes(product.brand);
-    return inPriceRange && inSelectedBrands;
+    
+    // Filtro de busca por nome
+    const matchesSearch = !searchQuery || 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return inPriceRange && inSelectedBrands && matchesSearch;
   });
+
+  const getPageTitle = () => {
+    if (searchQuery) return `Busca: "${searchQuery}"`;
+    if (selectedCategories.length === 1) {
+      return categoryTitles[selectedCategories[0] as keyof typeof categoryTitles] || "Produtos";
+    }
+    if (selectedCategories.length > 1) {
+      return "Múltiplas Categorias";
+    }
+    return "Todos os Produtos";
+  };
+
+  const clearAllFilters = () => {
+    setPriceRange([0, 5000]);
+    setSelectedBrands([]);
+    setSelectedCategories([]);
+    const newSearchParams = new URLSearchParams();
+    if (searchQuery) newSearchParams.set("q", searchQuery);
+    setSearchParams(newSearchParams);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -234,29 +207,25 @@ const Category = () => {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-8">
           <Link to="/" className="hover:text-primary">Home</Link>
           <span>/</span>
-          <Link to="/categorias" className="hover:text-primary">Categorias</Link>
-          <span>/</span>
-          <span className="text-foreground">{categoryName || "Categoria"}</span>
-          {/* <span className="text-xs bg-muted px-2 py-1 rounded ml-2">
-            slug: {categorySlug}
-          </span> */}
+          <span className="text-foreground">Produtos</span>
+          {searchQuery && (
+            <>
+              <span>/</span>
+              <span className="text-foreground">Busca</span>
+            </>
+          )}
         </nav>
 
         {/* Page Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">{categoryName || "Categoria"}</h1>
-            <p className="text-muted-foreground">
-              {filteredProducts.length} produtos encontrados 
-              {products.length !== filteredProducts.length && (
-                <span className="ml-2">({products.length} total, {products.length - filteredProducts.length} filtrados)</span>
-              )}
-            </p>
-            {/* <p className="text-xs text-muted-foreground mt-1">
-              Categoria: <code className="bg-muted px-1 rounded">{categorySlug}</code>
-              {loading && <span className="ml-2 text-blue-500">Carregando...</span>}
-              {error && <span className="ml-2 text-red-500">Erro!</span>}
-            </p> */}
+            <h1 className="text-3xl font-bold text-foreground mb-2">{getPageTitle()}</h1>
+            <p className="text-muted-foreground">{filteredProducts.length} produtos encontrados</p>
+            {searchQuery && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Mostrando resultados para: <span className="font-medium">"{searchQuery}"</span>
+              </p>
+            )}
           </div>
           
           <div className="flex items-center gap-4 mt-4 md:mt-0">
@@ -305,6 +274,30 @@ const Category = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <div className={`lg:w-64 space-y-6 ${showFilters ? 'block' : 'hidden'} lg:block`}>
+            {/* Categories Filter */}
+            {categories.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="font-semibold mb-4">Categorias</h3>
+                  <div className="space-y-3">
+                    {categories.map(category => (
+                      <div key={category} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={category}
+                          checked={selectedCategories.includes(category)}
+                          onCheckedChange={() => toggleCategory(category)}
+                        />
+                        <label htmlFor={category} className="text-sm cursor-pointer">
+                          {categoryTitles[category as keyof typeof categoryTitles] || category}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Price Range Filter */}
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-semibold mb-4">Faixa de Preço</h3>
@@ -323,7 +316,8 @@ const Category = () => {
                 </div>
               </CardContent>
             </Card>
-{/* 
+
+            {/* Brands Filter */}
             {brands.length > 0 && (
               <Card>
                 <CardContent className="p-6">
@@ -344,7 +338,14 @@ const Category = () => {
                   </div>
                 </CardContent>
               </Card>
-            )} */}
+            )}
+
+            {/* Clear Filters */}
+            {(selectedCategories.length > 0 || selectedBrands.length > 0 || priceRange[0] > 0 || priceRange[1] < 5000) && (
+              <Button variant="outline" onClick={clearAllFilters} className="w-full">
+                Limpar Todos os Filtros
+              </Button>
+            )}
           </div>
 
           {/* Products Grid */}
@@ -365,15 +366,14 @@ const Category = () => {
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">
                   {products.length === 0 
-                    ? "Nenhum produto encontrado nesta categoria." 
-                    : "Nenhum produto encontrado com os filtros aplicados."
+                    ? "Nenhum produto encontrado." 
+                    : searchQuery 
+                      ? `Nenhum produto encontrado para "${searchQuery}" com os filtros aplicados.`
+                      : "Nenhum produto encontrado com os filtros aplicados."
                   }
                 </p>
-                {products.length > 0 && (
-                  <Button onClick={() => {
-                    setPriceRange([0, 5000]);
-                    setSelectedBrands([]);
-                  }}>
+                {(products.length > 0 || searchQuery) && (
+                  <Button onClick={clearAllFilters}>
                     Limpar Filtros
                   </Button>
                 )}
@@ -401,6 +401,12 @@ const Category = () => {
                             {product.badge && (
                               <Badge className="absolute top-2 left-2">{product.badge}</Badge>
                             )}
+                            <Badge 
+                              variant="secondary" 
+                              className="absolute top-2 right-2 text-xs"
+                            >
+                              {categoryTitles[product.category as keyof typeof categoryTitles] || product.category}
+                            </Badge>
                             {viewMode === "grid" && (
                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                 <Button className="bg-white text-black hover:bg-gray-100">
@@ -415,15 +421,20 @@ const Category = () => {
                               <h3 className="font-semibold mb-2">{product.name}</h3>
                               <p className="text-sm text-muted-foreground mb-2">{product.brand}</p>
                               <div className="flex items-center gap-1 mb-2">
-                                {/* {[...Array(5)].map((_, i) => (
-                                  <Star key={`${product.id}-star-${i}`} className={`w-3 h-3 ${
+                                {[...Array(5)].map((_, i) => (
+                                  <Star key={i} className={`w-3 h-3 ${
                                     i < Math.floor(product.rating) 
                                       ? 'fill-yellow-400 text-yellow-400' 
                                       : 'text-gray-300'
                                   }`} />
-                                ))} */}
-                                {/* <span className="text-xs text-muted-foreground ml-1">({product.rating})</span> */}
+                                ))}
+                                <span className="text-xs text-muted-foreground ml-1">({product.rating})</span>
                               </div>
+                              {viewMode === "list" && (
+                                <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                  {product.description}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center justify-between">
                               <div>
@@ -480,4 +491,4 @@ const Category = () => {
   );
 };
 
-export default Category;
+export default Products;

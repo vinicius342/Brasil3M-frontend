@@ -20,10 +20,10 @@ const Header = () => {
           <Link to="/" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
             Início
           </Link>
-          <Link to="/categoria/categorias" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
+          <Link to="/categorias" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
             Categorias
           </Link>
-          <Link to="/" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
+          <Link to="/produtos" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
             Produtos
           </Link>
           <Link to="/about" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
@@ -40,8 +40,8 @@ const Header = () => {
           <SheetContent side="right" className="bg-black">
             <nav className="flex flex-col space-y-6 mt-8">
               <Link to="/" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Início</Link>
-              <Link to="/categoria/categorias" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Categorias</Link>
-              <Link to="/" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Produtos</Link>
+              <Link to="/categorias" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Categorias</Link>
+              <Link to="/produtos" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Produtos</Link>
               <Link to="/about" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left text-lg">Sobre</Link>
               {!currentUser ? (
                 <Link to="/login" className="text-white hover:text-white transition-colors text-lg">Entrar</Link>
