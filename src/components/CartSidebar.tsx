@@ -1,67 +1,13 @@
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ShoppingCart, Plus, Minus, Trash2, X } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import { useCart } from "@/contexts/CartContext";
 
 const CartSidebar = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 1,
-      name: "Smartphone Galaxy",
-      price: 899.99,
-      quantity: 1,
-      image: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      name: "Fone Bluetooth",
-      price: 199.99,
-      quantity: 2,
-      image: "/placeholder.svg"
-    },
-    {
-      id: 3,
-      name: "Capa Protetora",
-      price: 29.99,
-      quantity: 1,
-      image: "/placeholder.svg"
-    }
-  ]);
-
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity === 0) {
-      removeItem(id);
-      return;
-    }
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(items => items.filter(item => item.id !== id));
-  };
-
-  const getTotalItems = () => {
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
-  };
-
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  const { cartItems, updateQuantity, removeFromCart, getTotalItems, getTotalPrice } = useCart();
 
   return (
     <Sheet>
@@ -134,7 +80,7 @@ const CartSidebar = () => {
                          variant="ghost"
                          size="icon"
                          className="h-7 w-7 md:h-8 md:w-8 text-destructive hover:text-destructive"
-                         onClick={() => removeItem(item.id)}
+                         onClick={() => removeFromCart(item.id)}
                        >
                          <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                        </Button>

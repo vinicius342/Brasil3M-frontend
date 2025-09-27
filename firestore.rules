@@ -1,18 +1,76 @@
-rules_version='2'
-
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Usuários podem ver seus dados + Admin pode ver todos
+    match /users/{userId} {
+      // Usuário pode acessar seus próprios dados
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Admin pode ler todos os usuários
+      allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      
+      // Admin pode alterar role/status de outros usuários
+      allow update: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+    
+    // Categorias - todos podem ler, só admin pode editar
+    match /categories/{categoryId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+    
+    // Produtos - todos podem ler, só vendedor/admin podem criar/editar seus próprios
+    match /products/{productId} {
+      allow read: if true;
+      
+      // Vendedor pode criar produtos
+      allow create: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "seller" ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin") &&
+        request.resource.data.sellerId == request.auth.uid;
+      
+      // Vendedor pode editar seus próprios produtos ou admin pode editar qualquer produto
+      allow update, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        ((resource.data.sellerId == request.auth.uid) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin");
+    }
+    
+    // Pedidos - usuário pode ver seus pedidos, vendedor vê pedidos de seus produtos, admin vê tudo
+    match /orders/{orderId} {
+      allow read: if request.auth != null &&
+        (resource.data.buyerId == request.auth.uid ||
+         resource.data.sellerId == request.auth.uid ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"));
+      
+      allow create: if request.auth != null && request.resource.data.buyerId == request.auth.uid;
+      
+      allow update: if request.auth != null &&
+        (resource.data.sellerId == request.auth.uid ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"));
+    }
+    
+    // Wishlist - usuário pode gerenciar sua própria wishlist
+    match /wishlists/{wishlistId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Bloquear tudo mais
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 10, 23);
+      allow read, write: if false;
     }
   }
 }

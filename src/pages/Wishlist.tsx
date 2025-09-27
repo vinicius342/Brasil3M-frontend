@@ -6,89 +6,29 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Heart, ShoppingCart, Search, Trash2, Star } from "lucide-react";
 import Header from "@/components/Header";
+import { useWishlist } from "@/contexts/WishlistContext";
+import { useCart } from "@/contexts/CartContext";
 
 const Wishlist = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const [wishlistItems, setWishlistItems] = useState([
-    {
-      id: 1,
-      name: "Smartphone Galaxy S21",
-      price: 299.90,
-      originalPrice: 399.90,
-      image: "/placeholder.svg",
-      category: "Eletrônicos",
-      rating: 4.5,
-      reviews: 128,
-      inStock: true,
-      discount: 25,
-      addedDate: "2024-01-10"
-    },
-    {
-      id: 2,
-      name: "Notebook Gamer Intel Core i7",
-      price: 2999.90,
-      originalPrice: 3499.90,
-      image: "/placeholder.svg",
-      category: "Informática",
-      rating: 4.8,
-      reviews: 89,
-      inStock: true,
-      discount: 15,
-      addedDate: "2024-01-05"
-    },
-    {
-      id: 3,
-      name: "Tênis Esportivo Nike",
-      price: 189.90,
-      originalPrice: 249.90,
-      image: "/placeholder.svg",
-      category: "Esportes",
-      rating: 4.2,
-      reviews: 203,
-      inStock: false,
-      discount: 24,
-      addedDate: "2023-12-28"
-    },
-    {
-      id: 4,
-      name: "Fone de Ouvido Bluetooth",
-      price: 149.50,
-      originalPrice: 199.90,
-      image: "/placeholder.svg",
-      category: "Eletrônicos",
-      rating: 4.6,
-      reviews: 156,
-      inStock: true,
-      discount: 25,
-      addedDate: "2024-01-12"
-    },
-    {
-      id: 5,
-      name: "Smart TV 55 4K",
-      price: 1899.90,
-      originalPrice: 2299.90,
-      image: "/placeholder.svg",
-      category: "Eletrônicos",
-      rating: 4.7,
-      reviews: 94,
-      inStock: true,
-      discount: 17,
-      addedDate: "2023-12-20"
-    }
-  ]);
+  const { wishlistItems, removeFromWishlist } = useWishlist();
+  const { addToCart } = useCart();
 
-  const removeFromWishlist = (id: number) => {
-    setWishlistItems(items => items.filter(item => item.id !== id));
+  const handleAddToCart = (item: any) => {
+    addToCart({
+      id: item.productId,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      stock: 999 // Assumir que tem estoque, seria melhor buscar do produto real
+    }, 1);
   };
 
   const filteredItems = wishlistItems.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalValue = wishlistItems.reduce((sum, item) => sum + item.price, 0);
-  const totalSavings = wishlistItems.reduce((sum, item) => sum + (item.originalPrice - item.price), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -107,11 +47,7 @@ const Wishlist = () => {
               <p className="text-2xl font-bold text-primary">
                 R$ {totalValue.toFixed(2).replace('.', ',')}
               </p>
-              {totalSavings > 0 && (
-                <p className="text-sm text-green-600">
-                  Economia: R$ {totalSavings.toFixed(2).replace('.', ',')}
-                </p>
-              )}
+
             </div>
           </div>
 
@@ -154,96 +90,47 @@ const Wishlist = () => {
                       alt={item.name}
                       className="w-full h-48 object-cover rounded-t-lg"
                     />
-                    {item.discount > 0 && (
-                      <Badge className="absolute top-2 left-2">
-                        -{item.discount}%
-                      </Badge>
-                    )}
-                    {!item.inStock && (
-                      <Badge variant="destructive" className="absolute top-2 right-2">
-                        Esgotado
-                      </Badge>
-                    )}
                     <Button
                       variant="outline"
                       size="icon"
                       className="absolute top-2 right-2 bg-white/90 hover:bg-white"
-                      onClick={() => removeFromWishlist(item.id)}
+                      onClick={() => removeFromWishlist(item.productId)}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
 
                   <div className="p-4">
-                    <div className="mb-2">
-                      <Badge variant="outline" className="text-xs">
-                        {item.category}
-                      </Badge>
-                    </div>
-
                     <h3 className="font-semibold text-foreground mb-2 line-clamp-2">
                       {item.name}
                     </h3>
-
-                    <div className="flex items-center space-x-1 mb-3">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < Math.floor(item.rating)
-                                ? "text-yellow-400 fill-current"
-                                : "text-gray-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        ({item.reviews})
-                      </span>
-                    </div>
 
                     <div className="mb-4">
                       <div className="flex items-center space-x-2">
                         <span className="text-xl font-bold text-primary">
                           R$ {item.price.toFixed(2).replace('.', ',')}
                         </span>
-                        {item.originalPrice > item.price && (
-                          <span className="text-sm text-muted-foreground line-through">
-                            R$ {item.originalPrice.toFixed(2).replace('.', ',')}
-                          </span>
-                        )}
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Button 
-                        className="w-full" 
-                        disabled={!item.inStock}
-                        asChild={item.inStock}
+                        className="w-full"
+                        onClick={() => handleAddToCart(item)}
                       >
-                        {item.inStock ? (
-                          <Link to={`/produto/${item.id}`}>
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Comprar Agora
-                          </Link>
-                        ) : (
-                          <>
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Produto Esgotado
-                          </>
-                        )}
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Adicionar ao Carrinho
                       </Button>
 
                       <Button variant="outline" className="w-full" asChild>
-                        <Link to={`/produto/${item.id}`}>
+                        <Link to={`/produto/${item.productId}`}>
                           Ver Detalhes
                         </Link>
                       </Button>
                     </div>
 
                     <p className="text-xs text-muted-foreground mt-2">
-                      Adicionado em {item.addedDate}
+                      Adicionado em {item.dateAdded.toLocaleDateString('pt-BR')}
                     </p>
                   </div>
                 </CardContent>
