@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { EmailVerification } from "@/components/EmailVerification";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import {
 
 const Seller = () => {
   const { currentUser } = useAuth();
+  const { isEmailVerified } = useEmailVerification(false);
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -209,6 +212,11 @@ const Seller = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
+        {/* Verificação de E-mail */}
+        <div className="mb-6">
+          <EmailVerification />
+        </div>
+        
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Painel do Vendedor</h1>
@@ -216,7 +224,7 @@ const Seller = () => {
           </div>
           <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button disabled={!isEmailVerified}>
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Produto
               </Button>

@@ -109,17 +109,23 @@ const Categories = () => {
       setLoading(true);
       setError(null);
 
+      console.log("🔄 Iniciando busca de categorias...");
+
       // Buscar categorias no Firestore
       const categoriesQuery = query(
         collection(db, "categories"),
         orderBy("name", "asc")
       );
       
+      console.log("📋 Executando query de categorias...");
       const categoriesSnapshot = await getDocs(categoriesQuery);
+      console.log(`📊 Total de categorias encontradas no Firestore: ${categoriesSnapshot.size}`);
+      
       const firestoreCategories: Category[] = [];
       
       categoriesSnapshot.forEach((doc) => {
         const data = doc.data();
+        console.log(`📁 Categoria encontrada: ID=${doc.id}, Nome=${data.name}, Dados=`, data);
         firestoreCategories.push({
           id: doc.id,
           ...data
@@ -128,23 +134,54 @@ const Categories = () => {
 
       // Se não existirem categorias no Firestore, usar as padrão
       const categoriesToUse = firestoreCategories.length > 0 ? firestoreCategories : defaultCategories;
+      console.log(`🎯 Usando ${categoriesToUse.length} categorias (${firestoreCategories.length > 0 ? 'Firestore' : 'padrão'})`);
 
       // Buscar contagem de produtos para cada categoria
+      console.log("🔢 Iniciando contagem de produtos por categoria...");
       const categoriesWithCount = await Promise.all(
-        categoriesToUse.map(async (category) => {
-          try {
-            const productsQuery = query(
-              collection(db, "products"),
-              where("category", "==", category.slug)
-            );
-            const productsSnapshot = await getDocs(productsQuery);
-            
-            return {
-              ...category,
-              productCount: productsSnapshot.size
-            };
-          } catch (err) {
-            console.error(`Erro ao contar produtos da categoria ${category.slug}:`, err);
+        categoriesToUse.map(async (category, index) => {
+          console.log(`📦 [${index + 1}/${categoriesToUse.length}] Processando categoria: ID="${category.id}", Nome="${category.name}"`);
+          
+          // Verificar se tem ID válido
+          if (!category.id) {
+            console.log(`❌ Categoria ${category.name} não tem ID - pulando`);
+            return { ...category, productCount: 0 };
+          }
+
+          // Verificar o tamanho do ID
+          console.log(`🔍 ID da categoria: "${category.id}" (${category.id.length} caracteres)`);
+          
+          // Só faz a contagem se o id for um id do Firestore (20 caracteres)
+          if (category.id.length === 20) {
+            try {
+              console.log(`🔎 Buscando produtos onde categoryId == "${category.id}"`);
+              const productsQuery = query(
+                collection(db, "products"),
+                where("categoryId", "==", category.id)
+              );
+              const productsSnapshot = await getDocs(productsQuery);
+              console.log(`✅ Categoria "${category.name}": ${productsSnapshot.size} produtos encontrados`);
+              
+              // Log dos produtos encontrados
+              productsSnapshot.forEach((doc) => {
+                const product = doc.data();
+                console.log(`  📄 Produto: ${product.name} (categoryId: ${product.categoryId})`);
+              });
+              
+              return {
+                ...category,
+                productCount: productsSnapshot.size
+              };
+            } catch (err) {
+              console.error(`❌ Erro ao contar produtos da categoria ${category.id}:`, err);
+              return {
+                ...category,
+                productCount: 0
+              };
+            }
+          } else {
+            console.log(`⏭️ Categoria "${category.name}" (ID: ${category.id}) não é do Firestore (${category.id.length} chars) - pulando contagem`);
+            // Para categorias default, não faz contagem
             return {
               ...category,
               productCount: 0
@@ -153,13 +190,17 @@ const Categories = () => {
         })
       );
 
+      console.log("📊 Resultado final das categorias com contagem:", categoriesWithCount);
+
       setCategories(categoriesWithCount);
+      console.log("✅ Categorias carregadas e definidas no estado:", categoriesWithCount);
 
     } catch (err) {
-      console.error("Erro ao buscar categorias:", err);
+      console.error("❌ Erro geral ao buscar categorias:", err);
       setError("Erro ao carregar categorias. Tente novamente.");
     } finally {
       setLoading(false);
+      console.log("🏁 Processo de carregamento de categorias finalizado");
     }
   };
 
@@ -233,7 +274,7 @@ const Categories = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {categories.map((category) => (
-              <Link key={category.id} to={`/categoria/${category.slug}`}>
+              <Link key={category.id} to={`/categoria/${category.id}`}>
                 <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden h-full">
                   <CardContent className="p-0">
                     {/* Category Image */}

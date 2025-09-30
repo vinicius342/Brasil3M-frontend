@@ -8,6 +8,7 @@ import { User, Package, Heart, CreditCard, MapPin, ShoppingBag, Store, Star } fr
 import { useAuth } from "@/contexts/AuthContext";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import Header from "@/components/Header";
+import { EmailVerification } from "@/components/EmailVerification";
 
 const Dashboard = () => {
   const { currentUser, logout } = useAuth();
@@ -74,7 +75,7 @@ const Dashboard = () => {
                 </div>
 
                 <nav className="space-y-2">
-                  <Link to="/profile" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
+                  <Link to="/my-account" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
                     <User className="h-4 w-4" />
                     <span>Meu Perfil</span>
                   </Link>
@@ -113,6 +114,9 @@ const Dashboard = () => {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
+                {/* Verificação de E-mail */}
+                <EmailVerification />
+                
                 <div className="grid md:grid-cols-3 gap-4">
                   <Card>
                     <CardContent className="p-6">

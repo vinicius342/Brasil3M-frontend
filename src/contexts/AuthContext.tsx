@@ -6,7 +6,8 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
@@ -17,6 +18,7 @@ interface AuthContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
   loading: boolean;
 }
 
@@ -37,6 +39,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const register = async (email: string, password: string, displayName: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(user, { displayName });
+    
+    // Enviar e-mail de verificação
+    await sendEmailVerification(user);
+    
     // Salvar dados no Firestore
     const db = getFirestore();
     await setDoc(doc(db, "users", user.uid), {
@@ -44,6 +50,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       email: user.email,
       role: "client",
       status: "active",
+      emailVerified: false,
       createdAt: new Date()
     });
   };
@@ -58,6 +65,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
+  };
+
+  const sendVerificationEmail = async () => {
+    if (currentUser && !currentUser.emailVerified) {
+      await sendEmailVerification(currentUser);
+    }
   };
 
   useEffect(() => {
@@ -98,6 +111,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     register,
     logout,
     resetPassword,
+    sendVerificationEmail,
     loading
   };
 

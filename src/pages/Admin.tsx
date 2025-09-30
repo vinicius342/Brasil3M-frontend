@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { EmailVerification } from "@/components/EmailVerification";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +24,7 @@ import {
 } from "firebase/firestore";
 
 const Admin = () => {
+  const { isEmailVerified } = useEmailVerification(false);
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
@@ -152,6 +155,11 @@ const Admin = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
+        {/* Verificação de E-mail */}
+        <div className="mb-6">
+          <EmailVerification />
+        </div>
+        
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Painel Administrativo</h1>
           <p className="text-muted-foreground">Gerencie usuários e monitore estatísticas da plataforma</p>

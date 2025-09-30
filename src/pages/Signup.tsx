@@ -84,8 +84,8 @@ const Signup = () => {
       await register(formData.email, formData.password, displayName);
       
       toast({
-        title: "Sucesso!",
-        description: "Conta criada com sucesso! Bem-vindo!"
+        title: "Conta criada com sucesso!",
+        description: "Um e-mail de verificação foi enviado. Verifique sua caixa de entrada."
       });
       
       navigate("/profile");
