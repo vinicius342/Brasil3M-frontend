@@ -1,13 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, CheckCircle, AlertCircle, X } from 'lucide-react';
 
 export const EmailVerification = () => {
   const { currentUser, sendVerificationEmail } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const successMessageKey = `email-verified-${currentUser.uid}`;
+    const hasShownSuccess = localStorage.getItem(successMessageKey);
+
+    // Se o email foi verificado e ainda não mostrou a mensagem de sucesso
+    if (currentUser.emailVerified && !hasShownSuccess) {
+      setShowSuccessMessage(true);
+      localStorage.setItem(successMessageKey, 'true');
+    } else if (currentUser.emailVerified && hasShownSuccess) {
+      setShowSuccessMessage(false);
+    }
+  }, [currentUser?.emailVerified, currentUser?.uid]);
 
   if (!currentUser) return null;
 
@@ -31,15 +47,33 @@ export const EmailVerification = () => {
     });
   };
 
-  if (currentUser.emailVerified) {
+  const handleDismissSuccess = () => {
+    setShowSuccessMessage(false);
+  };
+
+  // Mostra mensagem de sucesso apenas uma vez
+  if (currentUser.emailVerified && showSuccessMessage) {
     return (
       <Alert className="border-green-200 bg-green-50">
         <CheckCircle className="h-4 w-4 text-green-600" />
-        <AlertDescription className="text-green-800">
-          Seu e-mail foi verificado com sucesso!
+        <AlertDescription className="text-green-800 flex items-center justify-between">
+          <span>Seu e-mail foi verificado com sucesso!</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDismissSuccess}
+            className="h-6 w-6 p-0 text-green-600 hover:text-green-800"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </AlertDescription>
       </Alert>
     );
+  }
+
+  // Se email já verificado e mensagem já foi mostrada, não mostra nada
+  if (currentUser.emailVerified) {
+    return null;
   }
 
   return (

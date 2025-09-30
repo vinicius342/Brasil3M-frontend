@@ -87,10 +87,12 @@ const Dashboard = () => {
                     <Heart className="h-4 w-4" />
                     <span>Lista de Desejos</span>
                   </Link>
-                  <Link to="/seller" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
-                    <Store className="h-4 w-4" />
-                    <span>Vender</span>
-                  </Link>
+                    {(role === "seller" || role === "admin") && (
+                      <Link to="/seller" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted transition-colors">
+                        <Store className="h-4 w-4" />
+                        <span>Vender</span>
+                      </Link>
+                    )}
                   <Button variant="outline" className="w-full mt-2" onClick={async () => { await logout(); }}>
                     Sair
                   </Button>

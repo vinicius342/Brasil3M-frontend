@@ -70,8 +70,8 @@ const Login = () => {
       <div className="w-full max-w-sm md:max-w-md">
         <div className="text-center mb-6 md:mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <Store className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            <span className="text-xl md:text-2xl font-bold text-gradient">LojaOnline</span>
+            <img src="/src/assets/brasil-logo-2.png" alt="Brasil 3M" className="h-8 w-8 md:h-10 md:w-10" />
+            <span className="text-xl md:text-2xl font-bold text-gradient">Brasil 3M</span>
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Bem-vindo de volta</h1>
           <p className="text-sm md:text-base text-muted-foreground">Entre na sua conta para continuar</p>

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Package, DollarSign, Eye, Edit, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   getFirestore, 
   collection, 
@@ -24,6 +24,9 @@ import {
   orderBy,
   limit,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp
 } from "firebase/firestore";
 
@@ -35,6 +38,8 @@ const Seller = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: "",
     description: "",
@@ -43,7 +48,29 @@ const Seller = () => {
     categoryId: "",
     images: ""
   });
+  const navigate = useNavigate();
   const db = getFirestore();
+
+  // Verificar role do usuário
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checkRole = async () => {
+      try {
+        const userDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", currentUser.uid)));
+        if (!userDoc.empty) {
+          const userData = userDoc.docs[0].data();
+          if (userData.role !== "seller" && userData.role !== "admin") {
+            navigate("/profile");
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao verificar role do usuário:", err);
+      }
+    };
+
+    checkRole();
+  }, [currentUser, navigate]);
 
   // Buscar categorias disponíveis
   useEffect(() => {
@@ -193,6 +220,60 @@ const Seller = () => {
     } catch (error) {
       console.error("Erro ao adicionar produto:", error);
       alert("Erro ao adicionar produto. Tente novamente.");
+    }
+  };
+
+  // Função para editar produto
+  const handleEditProduct = (product) => {
+    setEditingProduct({
+      id: product.id,
+      name: product.name || product.title,
+      description: product.description,
+      price: product.price ? product.price.toString().replace('R$ ', '').replace(',', '.') : '',
+      stock: (product.stock || product.quantity || 0).toString(),
+      categoryId: product.categoryId,
+      images: product.images ? product.images.join(', ') : ''
+    });
+    setIsEditProductOpen(true);
+  };
+
+  // Função para salvar edição do produto
+  const saveEditProduct = async () => {
+    if (!editingProduct.name.trim() || !editingProduct.description.trim() || !editingProduct.price || !editingProduct.stock || !editingProduct.categoryId) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "products", editingProduct.id), {
+        name: editingProduct.name,
+        description: editingProduct.description,
+        price: parseFloat(editingProduct.price),
+        stock: parseInt(editingProduct.stock),
+        categoryId: editingProduct.categoryId,
+        images: editingProduct.images ? editingProduct.images.split(',').map(url => url.trim()) : [],
+        updatedAt: serverTimestamp()
+      });
+
+      setIsEditProductOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error("Erro ao editar produto:", error);
+      alert("Erro ao editar produto. Tente novamente.");
+    }
+  };
+
+  // Função para excluir produto
+  const handleDeleteProduct = async (productId, productName) => {
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir o produto "${productName}"? Esta ação não pode ser desfeita.`);
+    
+    if (confirmDelete) {
+      try {
+        await deleteDoc(doc(db, "products", productId));
+      } catch (error) {
+        console.error("Erro ao excluir produto:", error);
+        alert("Erro ao excluir produto. Tente novamente.");
+      }
     }
   };
 
@@ -421,13 +502,28 @@ const Seller = () => {
                         <TableCell>{product.sales} vendas</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/produto/${product.id}`)}
+                              title="Visualizar produto"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditProduct(product)}
+                              title="Editar produto"
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteProduct(product.id, product.name || product.title)}
+                              title="Excluir produto"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -440,6 +536,100 @@ const Seller = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Dialog de Edição de Produto */}
+        <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Editar Produto</DialogTitle>
+              <DialogDescription>
+                Altere os dados do produto e salve as mudanças.
+              </DialogDescription>
+            </DialogHeader>
+            {editingProduct && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-name" className="text-right">Nome *</Label>
+                  <Input
+                    id="edit-product-name"
+                    value={editingProduct.name}
+                    onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Ex: Smartphone Samsung Galaxy"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-description" className="text-right">Descrição *</Label>
+                  <Textarea
+                    id="edit-product-description"
+                    value={editingProduct.description}
+                    onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Descreva as características do produto..."
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-price" className="text-right">Preço *</Label>
+                  <Input
+                    id="edit-product-price"
+                    type="number"
+                    step="0.01"
+                    value={editingProduct.price}
+                    onChange={(e) => setEditingProduct({...editingProduct, price: e.target.value})}
+                    className="col-span-3"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-stock" className="text-right">Estoque *</Label>
+                  <Input
+                    id="edit-product-stock"
+                    type="number"
+                    value={editingProduct.stock}
+                    onChange={(e) => setEditingProduct({...editingProduct, stock: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Quantidade disponível"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-category" className="text-right">Categoria *</Label>
+                  <Select
+                    value={editingProduct.categoryId}
+                    onValueChange={(value) => setEditingProduct({...editingProduct, categoryId: value})}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-product-images" className="text-right">Imagens</Label>
+                  <Input
+                    id="edit-product-images"
+                    value={editingProduct.images}
+                    onChange={(e) => setEditingProduct({...editingProduct, images: e.target.value})}
+                    className="col-span-3"
+                    placeholder="URLs das imagens separadas por vírgula"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditProductOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={saveEditProduct}>Salvar Alterações</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Card className="mt-8">
           <CardHeader className="flex justify-between items-center">

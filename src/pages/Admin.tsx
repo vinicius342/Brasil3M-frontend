@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { EmailVerification } from "@/components/EmailVerification";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ import {
 
 const Admin = () => {
   const { isEmailVerified } = useEmailVerification(false);
+  const { currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
@@ -84,10 +86,10 @@ const Admin = () => {
   const updateUserType = async (userId: string, newType: string) => {
     try {
       await updateDoc(doc(db, "users", userId), {
-        role: newType === "seller" ? "seller" : "client"
+        role: newType
       });
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newType === "seller" ? "seller" : "client" } : user
+        user.id === userId ? { ...user, role: newType } : user
       ));
     } catch (error) {
       console.error("Erro ao atualizar tipo do usuário:", error);
@@ -350,6 +352,21 @@ const Admin = () => {
                               <SelectItem value="inactive">Inativo</SelectItem>
                             </SelectContent>
                           </Select>
+                          {/* Admin não pode alterar seu próprio tipo */}
+                          {currentUser?.uid !== user.id && user.role !== "admin" && (
+                            <Select
+                              value={user.role || "client"}
+                              onValueChange={(value) => updateUserType(user.id, value)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="client">Cliente</SelectItem>
+                                <SelectItem value="seller">Vendedor</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

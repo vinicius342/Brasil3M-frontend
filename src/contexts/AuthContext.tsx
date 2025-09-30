@@ -15,7 +15,7 @@ import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 interface AuthContextType {
   currentUser: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
+  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
@@ -36,8 +36,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const register = async (email: string, password: string, displayName: string) => {
+  const register = async (email: string, password: string, firstName: string, lastName: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    const displayName = `${firstName} ${lastName}`;
     await updateProfile(user, { displayName });
     
     // Enviar e-mail de verificação
@@ -46,6 +47,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Salvar dados no Firestore
     const db = getFirestore();
     await setDoc(doc(db, "users", user.uid), {
+      firstName,
+      lastName,
       displayName,
       email: user.email,
       role: "client",

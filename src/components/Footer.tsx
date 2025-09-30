@@ -47,13 +47,14 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <span className="hover:text-white transition-colors">Trabalhe Conosco</span>
+                <Link to="/privacy-policy">
+                  <span className="hover:text-white transition-colors">Política de Privacidade</span>
+                </Link>
               </li>
               <li>
-                <span className="hover:text-white transition-colors">Política de Privacidade</span>
-              </li>
-              <li>
-                <span className="hover:text-white transition-colors">Termos de Uso</span>
+                <Link to="/terms-of-use">
+                  <span className="hover:text-white transition-colors">Termos de Uso</span>
+                </Link>
               </li>
             </ul>
           </div>
@@ -61,7 +62,7 @@ const Footer = () => {
         
         <div className="border-t border-white/20 mt-8 md:mt-12 pt-6 md:pt-8 text-center">
           <p className="text-sm md:text-base">
-            © 2024 LojaOnline. Todos os direitos reservados.
+            © 2025 Brasil 3M. Todos os direitos reservados.
           </p>
         </div>
       </div>

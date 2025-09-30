@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
 
+
 const Signup = () => {
   useRedirectIfAuthenticated();
 
@@ -80,8 +81,7 @@ const Signup = () => {
     setLoading(true);
     
     try {
-      const displayName = `${formData.firstName} ${formData.lastName}`;
-      await register(formData.email, formData.password, displayName);
+      await register(formData.email, formData.password, formData.firstName, formData.lastName);
       
       toast({
         title: "Conta criada com sucesso!",
@@ -115,8 +115,8 @@ const Signup = () => {
       <div className="w-full max-w-sm md:max-w-md">
         <div className="text-center mb-6 md:mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <Store className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            <span className="text-xl md:text-2xl font-bold text-gradient">LojaOnline</span>
+            <img src="/src/assets/brasil-logo-2.png" alt="Brasil 3M" className="h-8 w-8 md:h-10 md:w-10" />
+            <span className="text-xl md:text-2xl font-bold text-gradient">Brasil 3M</span>
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Criar conta</h1>
           <p className="text-sm md:text-base text-muted-foreground">Cadastre-se para começar suas compras</p>
@@ -237,10 +237,7 @@ const Signup = () => {
                   htmlFor="acceptTerms"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  Aceito os{" "}
-                  <Link to="/terms" className="text-primary hover:text-primary/80">
-                    termos e condições
-                  </Link>
+                  Aceito os <Link to="/terms-of-use" className="text-primary hover:text-primary/80 underline">Termos de Uso</Link> e a <Link to="/privacy-policy" className="text-primary hover:text-primary/80 underline">Política de Privacidade</Link>
                 </Label>
               </div>
 
