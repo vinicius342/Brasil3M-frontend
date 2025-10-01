@@ -73,7 +73,7 @@ const Login = () => {
             <img src="/src/assets/brasil-logo-2.png" alt="Brasil 3M" className="h-8 w-8 md:h-10 md:w-10" />
             <span className="text-xl md:text-2xl font-bold text-gradient">Brasil 3M</span>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Bem-vindo de volta</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Bem-vindo</h1>
           <p className="text-sm md:text-base text-muted-foreground">Entre na sua conta para continuar</p>
         </div>
 

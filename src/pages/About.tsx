@@ -22,6 +22,35 @@ const About = () => {
             </p>
           </div>
 
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                🇧🇷 BRASIL 3M
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground leading-relaxed">
+                O BRASIL 3M é um servidor de DayZ criado para liberar todo o potencial de modificação do jogo e proporcionar uma experiência única para cada player. Aqui, acreditamos que o DayZ pode ir muito além do básico, e por isso trabalhamos constantemente em inovação, personalização e equilíbrio para transformar cada experiência dentro do servidor em algo memorável.
+              </p>
+              
+              <p className="text-muted-foreground leading-relaxed">
+                Nosso foco atual é <strong>Sobrevivência e PVP</strong>, oferecendo uma jogabilidade intensa, desafiadora e dinâmica, onde cada encontro pode ser decisivo e cada escolha faz a diferença. Além disso, prezamos por uma comunidade sólida e ativa, onde o respeito e a diversão caminham juntos, garantindo um ambiente competitivo e ao mesmo tempo justo.
+              </p>
+              
+              <p className="text-muted-foreground leading-relaxed">
+                Atualmente, estamos no <strong>Xbox, no mapa Chernarus</strong>, entregando uma vivência totalmente envolvente dentro do universo de DayZ.
+              </p>
+              
+              <p className="text-muted-foreground leading-relaxed">
+                E a jornada não para por aí: em breve o BRASIL 3M também estará no <strong>PC e PlayStation</strong>, além de lançar um <strong>servidor exclusivo de RP (Roleplay)</strong>, expandindo horizontes e oferecendo novas formas de jogar e se divertir.
+              </p>
+              
+              <p className="text-lg font-semibold text-primary leading-relaxed">
+                Se você busca evolução, ação, adrenalina e novos desafios, o BRASIL 3M é o seu lugar. Venha com a gente e ajude a escrever essa história!
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Seção principal */}
           <Card className="mb-8">
             <CardContent className="p-8">

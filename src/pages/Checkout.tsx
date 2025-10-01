@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,29 +10,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, MapPin, Truck, Shield, Plus } from "lucide-react";
 import Header from "@/components/Header";
+import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Checkout = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { cartItems, getTotalPrice, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [selectedAddress, setSelectedAddress] = useState("1");
   const [selectedPayment, setSelectedPayment] = useState("credit");
   const [selectedShipping, setSelectedShipping] = useState("standard");
-
-  const cartItems = [
-    {
-      id: 1,
-      name: "Smartphone Galaxy S21",
-      price: 299.90,
-      quantity: 1,
-      image: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      name: "Fone de Ouvido Bluetooth",
-      price: 149.50,
-      quantity: 2,
-      image: "/placeholder.svg"
-    }
-  ];
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const addresses = [
     {
@@ -78,18 +69,59 @@ const Checkout = () => {
     }
   ];
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = getTotalPrice();
   const shippingCost = shippingOptions.find(option => option.id === selectedShipping)?.price || 0;
   const total = subtotal + shippingCost;
 
-  const handleFinishOrder = () => {
-    console.log("Finalizando pedido...", {
-      items: cartItems,
-      address: selectedAddress,
-      payment: selectedPayment,
-      shipping: selectedShipping,
-      total
-    });
+  const handleFinishOrder = async () => {
+    if (!acceptTerms) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Você deve aceitar os termos e condições para continuar."
+      });
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Carrinho vazio",
+        description: "Adicione produtos ao carrinho antes de finalizar a compra."
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Simular processamento do pedido
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Criar ID do pedido
+      const orderId = Math.random().toString(36).substr(2, 9).toUpperCase();
+
+      // Limpar carrinho
+      clearCart();
+
+      // Exibir toast de sucesso
+      toast({
+        title: "Pedido realizado com sucesso!",
+        description: `Pedido #${orderId} criado. Você será redirecionado para a confirmação.`
+      });
+
+      // Redirecionar para página de confirmação com parâmetros
+      navigate(`/order-confirmation?orderId=${orderId}&payment=${selectedPayment}`);
+
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pedido",
+        description: "Ocorreu um erro ao processar seu pedido. Tente novamente."
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -100,6 +132,16 @@ const Checkout = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">Finalizar Compra</h1>
           <p className="text-muted-foreground">Complete sua compra em poucos passos</p>
         </div>
+
+        {cartItems.length === 0 ? (
+          <div className="text-center py-16">
+            <h2 className="text-2xl font-semibold mb-4">Seu carrinho está vazio</h2>
+            <p className="text-muted-foreground mb-8">Adicione produtos ao carrinho para continuar com a compra.</p>
+            <Button onClick={() => navigate('/')}>
+              Continuar Comprando
+            </Button>
+          </div>
+        ) : (
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -279,15 +321,19 @@ const Checkout = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Checkbox id="terms" />
+                    <Checkbox 
+                      id="terms" 
+                      checked={acceptTerms}
+                      onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                    />
                     <label htmlFor="terms">
-                      Aceito os <a href="/terms" className="text-primary underline">termos de uso</a>
+                      Aceito os <a href="/terms-of-use" className="text-primary underline">termos de uso</a>
                     </label>
                   </div>
 
-                  <Button onClick={handleFinishOrder} className="w-full">
+                  <Button onClick={handleFinishOrder} className="w-full" disabled={loading}>
                     <Shield className="h-4 w-4 mr-2" />
-                    Finalizar Compra
+                    {loading ? "Processando..." : "Finalizar Compra"}
                   </Button>
 
                   <div className="text-center text-xs text-muted-foreground">
@@ -299,6 +345,7 @@ const Checkout = () => {
             </Card>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

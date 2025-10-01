@@ -5,9 +5,11 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
+import { useNavigate } from "react-router-dom";
 
 const CartSidebar = () => {
   const { cartItems, updateQuantity, removeFromCart, getTotalItems, getTotalPrice } = useCart();
+  const navigate = useNavigate();
 
   return (
     <Sheet>
@@ -36,7 +38,7 @@ const CartSidebar = () => {
                 <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Carrinho vazio</h3>
                 <p className="text-muted-foreground mb-4">Adicione produtos para começar suas compras</p>
-                <Button>Continuar Comprando</Button>
+                <Button onClick={() => navigate('/')}>Continuar Comprando</Button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -109,10 +111,18 @@ const CartSidebar = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Button className="w-full" size="lg">
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => navigate('/checkout')}
+                >
                   Finalizar Compra
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => navigate('/')}
+                >
                   Continuar Comprando
                 </Button>
               </div>

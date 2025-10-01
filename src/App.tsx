@@ -28,6 +28,7 @@ import Admin from "./pages/Admin";
 import Seller from "./pages/Seller";
 import AddProduct from "./pages/AddProduct";
 import ManageProducts from "./pages/ManageProducts";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/NotFound";
 import { PrivateRoute } from "@/routes/PrivateRoute";
 import { AdminRoute } from "@/routes/AdminRoute";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
             <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
             <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
+            <Route path="/order-confirmation" element={<PrivateRoute><OrderConfirmation /></PrivateRoute>} />
             <Route path="/about" element={<About />} />
             <Route path="/support" element={<Support />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
