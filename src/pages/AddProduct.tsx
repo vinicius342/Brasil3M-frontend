@@ -14,6 +14,20 @@ const AddProduct = () => {
   const [images, setImages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState("");
+  
+  // Estado do formulário
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    price: "",
+    comparePrice: "",
+    category: "",
+    stock: "",
+    weight: "", // em kg
+    length: "", // em cm
+    width: "", // em cm  
+    height: "" // em cm
+  });
 
   const addTag = () => {
     if (currentTag.trim() && !tags.includes(currentTag.trim())) {
@@ -38,6 +52,40 @@ const AddProduct = () => {
     setImages(images.filter((_, index) => index !== indexToRemove));
   };
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Aqui você salvaria no Firebase/Firestore
+      const productData = {
+        ...formData,
+        price: parseFloat(formData.price),
+        comparePrice: formData.comparePrice ? parseFloat(formData.comparePrice) : null,
+        stock: parseInt(formData.stock),
+        weight: parseFloat(formData.weight),
+        dimensions: {
+          length: parseFloat(formData.length),
+          width: parseFloat(formData.width),
+          height: parseFloat(formData.height)
+        },
+        images,
+        tags,
+        createdAt: new Date()
+      };
+      
+      console.log('Dados do produto para salvar:', productData);
+      alert('Produto salvo com sucesso! (implementar salvamento no Firebase)');
+      
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      alert('Erro ao salvar produto');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -57,7 +105,7 @@ const AddProduct = () => {
             </div>
           </div>
 
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -212,23 +260,86 @@ const AddProduct = () => {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="weight">Peso (kg)</Label>
-                    <Input id="weight" type="number" step="0.01" placeholder="0,00" />
+                    <Label htmlFor="weight">Peso para Frete (kg) *</Label>
+                    <Input 
+                      id="weight" 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0.50"
+                      value={formData.weight}
+                      onChange={(e) => handleInputChange('weight', e.target.value)}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Peso do produto embalado para cálculo de frete
+                    </p>
                   </div>
                   
                   <div>
-                    <Label htmlFor="dimensions">Dimensões (cm)</Label>
-                    <Input id="dimensions" placeholder="C x L x A" />
+                    <Label htmlFor="stock">Estoque</Label>
+                    <Input 
+                      id="stock" 
+                      type="number" 
+                      placeholder="10"
+                      value={formData.stock}
+                      onChange={(e) => handleInputChange('stock', e.target.value)}
+                      required
+                    />
                   </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">Dimensões para Frete (cm) *</Label>
+                  <div className="grid grid-cols-3 gap-3 mt-2">
+                    <div>
+                      <Label htmlFor="length" className="text-xs text-muted-foreground">Comprimento</Label>
+                      <Input 
+                        id="length" 
+                        type="number" 
+                        step="0.1"
+                        placeholder="20"
+                        value={formData.length}
+                        onChange={(e) => handleInputChange('length', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="width" className="text-xs text-muted-foreground">Largura</Label>
+                      <Input 
+                        id="width" 
+                        type="number" 
+                        step="0.1"
+                        placeholder="15"
+                        value={formData.width}
+                        onChange={(e) => handleInputChange('width', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="height" className="text-xs text-muted-foreground">Altura</Label>
+                      <Input 
+                        id="height" 
+                        type="number" 
+                        step="0.1"
+                        placeholder="10"
+                        value={formData.height}
+                        onChange={(e) => handleInputChange('height', e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Dimensões do produto embalado (caixa/envelope) para cálculo de frete
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex gap-4 justify-end">
               <Link to="/seller">
-                <Button variant="outline">Cancelar</Button>
+                <Button variant="outline" type="button">Cancelar</Button>
               </Link>
-              <Button>Salvar Produto</Button>
+              <Button type="submit">Salvar Produto</Button>
             </div>
           </form>
         </div>

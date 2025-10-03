@@ -3,13 +3,17 @@ import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { ShoppingCart, Heart, Star, Truck, Shield, RotateCcw } from "lucide-react";
+import { ShoppingCart, Heart, Star, Truck, Shield, RotateCcw, Calculator, MapPin } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { calculateShipping, searchCEP, ShippingQuote } from "@/services/shippingService";
 
 const fallbackImages = [
   "https://images.unsplash.com/photo-1721322800607-8c38375eef04?w=400&h=400&fit=crop",
@@ -25,6 +29,10 @@ const ProductDetail = () => {
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [cep, setCep] = useState("");
+  const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [cepError, setCepError] = useState("");
   const db = getFirestore();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
@@ -36,7 +44,8 @@ const ProductDetail = () => {
         name: product.name,
         price: parseFloat(product.price.replace('R$ ', '').replace('.', '').replace(',', '.')),
         image: product.images[0],
-        stock: product.stock
+        stock: product.stock,
+        weight: product.weight // Adicionar peso do produto
       }, quantity);
       
       // Resetar quantidade após adicionar
@@ -58,6 +67,44 @@ const ProductDetail = () => {
       await removeFromWishlist(product.id);
     } else {
       await addToWishlist(productData);
+    }
+  };
+
+  // Calcular frete
+  const handleShippingCalculation = async () => {
+    if (!cep || cep.replace(/\D/g, '').length !== 8) {
+      setCepError("CEP deve ter 8 dígitos");
+      return;
+    }
+
+    setCepError("");
+    setLoadingShipping(true);
+    
+    try {
+      // Verificar se CEP é válido
+      const cepData = await searchCEP(cep);
+      if (!cepData) {
+        setCepError("CEP não encontrado");
+        return;
+      }
+
+      // Calcular frete baseado no produto
+      const weight = product.weight || 0.5; // Usar peso do produto ou padrão 500g
+      const dimensions = product.dimensions || { length: 20, width: 15, height: 10 }; // Usar dimensões do produto ou padrão
+      
+      const quotes = await calculateShipping(
+        '01310-100', // CEP de origem (configurável)
+        cep,
+        weight * quantity,
+        dimensions
+      );
+
+      setShippingQuotes(quotes);
+    } catch (error) {
+      console.error('Erro ao calcular frete:', error);
+      setCepError("Erro ao calcular frete. Tente novamente.");
+    } finally {
+      setLoadingShipping(false);
     }
   };
 
@@ -90,7 +137,9 @@ const ProductDetail = () => {
           description: productData.description || "Descrição não disponível",
           features: productData.features || [],
           categoryId: productData.categoryId,
-          stock: productData.stock || 0
+          stock: productData.stock || 0,
+          weight: productData.weight || 0.5, // Peso em kg
+          dimensions: productData.dimensions || { length: 20, width: 15, height: 10 } // Dimensões em cm
         };
         
         setProduct(formattedProduct);
@@ -290,6 +339,75 @@ const ProductDetail = () => {
                 <Heart className={`h-4 w-4 ${isInWishlist(product?.id || '') ? 'fill-current' : ''}`} />
               </Button>
             </div>
+
+            {/* Calculadora de Frete */}
+            <Card className="p-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Calcular Frete e Prazo</h3>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="cep">CEP de destino</Label>
+                    <Input
+                      id="cep"
+                      placeholder="00000-000"
+                      value={cep}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        const formatted = value.replace(/^(\d{5})(\d)/, '$1-$2');
+                        setCep(formatted);
+                        setCepError("");
+                        setShippingQuotes([]);
+                      }}
+                    />
+                    {cepError && (
+                      <p className="text-xs text-red-500 mt-1">{cepError}</p>
+                    )}
+                  </div>
+                  <Button 
+                    onClick={handleShippingCalculation}
+                    disabled={loadingShipping || cep.replace(/\D/g, '').length !== 8}
+                    className="mt-6"
+                  >
+                    {loadingShipping ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    ) : (
+                      <>
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Calcular
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Resultados do frete */}
+                {shippingQuotes.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground">Opções de entrega:</p>
+                    {shippingQuotes.map((quote) => (
+                      <div key={quote.id} className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <p className="font-medium text-sm">{quote.name}</p>
+                          <p className="text-xs text-muted-foreground">{quote.company}</p>
+                          <p className="text-xs text-muted-foreground">{quote.deliveryTime}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-primary">
+                            {quote.price === 0 ? 'Grátis' : `R$ ${quote.price.toFixed(2).replace('.', ',')}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      * Frete calculado para {quantity} {quantity === 1 ? 'unidade' : 'unidades'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
 
             <div className="grid grid-cols-3 gap-4 pt-6 border-t">
               {/* <div className="text-center">

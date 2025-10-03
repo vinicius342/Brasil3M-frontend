@@ -29,8 +29,11 @@ import Seller from "./pages/Seller";
 import AddProduct from "./pages/AddProduct";
 import ManageProducts from "./pages/ManageProducts";
 import OrderConfirmation from "./pages/OrderConfirmation";
+import OrderManagement from "./pages/OrderManagement";
+import ShippingConfig from "./pages/ShippingConfig";
 import NotFound from "./pages/NotFound";
 import { PrivateRoute } from "@/routes/PrivateRoute";
+import MelhorEnvioCallback from "@/pages/MelhorEnvioCallback";
 import { AdminRoute } from "@/routes/AdminRoute";
 
 const queryClient = new QueryClient();
@@ -68,6 +71,9 @@ const App = () => (
             <Route path="/seller" element={<PrivateRoute><Seller /></PrivateRoute>} />
             <Route path="/seller/add-product" element={<PrivateRoute><AddProduct /></PrivateRoute>} />
             <Route path="/seller/manage-products" element={<PrivateRoute><ManageProducts /></PrivateRoute>} />
+            <Route path="/auth/melhor-envio/callback" element={<PrivateRoute><MelhorEnvioCallback /></PrivateRoute>} />
+            <Route path="/admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
+            <Route path="/config" element={<ShippingConfig />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -4,9 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, Package, CreditCard, MapPin, Download, Home, Copy } from "lucide-react";
+import { CheckCircle, Package, CreditCard, MapPin, Download, Home, Copy, Truck } from "lucide-react";
 import Header from "@/components/Header";
+import TrackingComponent from "@/components/TrackingComponent";
 import { useToast } from "@/hooks/use-toast";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 const OrderConfirmation = () => {
   const [searchParams] = useSearchParams();
@@ -16,51 +18,102 @@ const OrderConfirmation = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
 
   useEffect(() => {
-    // Simular busca dos dados do pedido
-    const orderId = searchParams.get('orderId') || Math.random().toString(36).substr(2, 9).toUpperCase();
-    const payment = searchParams.get('payment') || 'credit';
-    
-    setPaymentMethod(payment);
-    
-    // Dados mockados do pedido
-    setOrderData({
-      id: orderId,
-      status: "confirmed",
-      total: 598.80,
-      items: [
-        {
-          id: 1,
-          name: "Smartphone Galaxy S21",
-          price: 299.90,
-          quantity: 1,
-          image: "/placeholder.svg"
-        },
-        {
-          id: 2,
-          name: "Fone de Ouvido Bluetooth",
-          price: 149.50,
-          quantity: 2,
-          image: "/placeholder.svg"
+    const fetchOrderData = async () => {
+      const orderId = searchParams.get('orderId');
+      const payment = searchParams.get('payment') || 'credit';
+      
+      setPaymentMethod(payment);
+      
+      if (!orderId) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "ID do pedido não encontrado."
+        });
+        navigate('/');
+        return;
+      }
+
+      try {
+        const db = getFirestore();
+        const orderDoc = await getDoc(doc(db, 'orders', orderId));
+        
+        if (!orderDoc.exists()) {
+          toast({
+            variant: "destructive",
+            title: "Pedido não encontrado",
+            description: "O pedido solicitado não existe."
+          });
+          navigate('/');
+          return;
         }
-      ],
-      shipping: {
-        method: "Entrega Padrão",
-        address: {
-          street: "Rua das Flores, 123",
-          neighborhood: "Centro",
-          city: "São Paulo",
-          state: "SP",
-          zipCode: "01234-567"
-        },
-        estimatedDelivery: "5-7 dias úteis"
-      },
-      payment: {
-        method: payment === 'credit' ? 'Cartão de Crédito' : payment === 'pix' ? 'PIX' : 'Boleto Bancário',
-        status: payment === 'pix' ? 'pending' : 'confirmed'
-      },
-      createdAt: new Date().toLocaleDateString('pt-BR')
-    });
-  }, [searchParams]);
+
+        const orderData = orderDoc.data();
+        
+        // Formatar dados para exibição
+        const formattedOrder = {
+          id: orderDoc.id,
+          status: orderData.status === 'processing' ? 'confirmed' : orderData.status,
+          total: orderData.totalAmount || 0,
+          subtotal: orderData.subtotal || 0,
+          shippingCost: orderData.shippingCost || 0,
+          items: orderData.items || [],
+          shipping: {
+            method: orderData.shippingMethod || "Entrega Padrão",
+            company: orderData.shippingCompany || "Brasil 3M",
+            address: orderData.shippingAddress || {},
+            estimatedDelivery: orderData.estimatedDeliveryTime || "5-7 dias úteis"
+          },
+          payment: {
+            method: orderData.paymentMethod || 'Cartão de Crédito',
+            status: orderData.paymentStatus || 'confirmed'
+          },
+          tracking: orderData.trackingCode || null,
+          createdAt: orderData.createdAt?.toDate?.()?.toLocaleDateString('pt-BR') || new Date().toLocaleDateString('pt-BR')
+        };
+        
+        setOrderData(formattedOrder);
+      } catch (error) {
+        console.error("Erro ao buscar pedido:", error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao carregar dados do pedido."
+        });
+        
+        // Fallback: usar dados mockados se houver erro
+        const fallbackOrderId = orderId || Math.random().toString(36).substr(2, 9).toUpperCase();
+        setOrderData({
+          id: fallbackOrderId,
+          status: "confirmed",
+          total: 0,
+          subtotal: 0,
+          shippingCost: 0,
+          items: [],
+          shipping: {
+            method: "Entrega Padrão",
+            company: "Brasil 3M",
+            address: {
+              street: "Endereço não informado",
+              neighborhood: "",
+              city: "",
+              state: "",
+              zipCode: ""
+            },
+            estimatedDelivery: "5-7 dias úteis"
+          },
+          payment: {
+            method: payment === 'credit' ? 'Cartão de Crédito' : payment === 'pix' ? 'PIX' : 'Boleto Bancário',
+            status: payment === 'pix' ? 'pending' : 'confirmed'
+          },
+          tracking: null,
+          createdAt: new Date().toLocaleDateString('pt-BR')
+        });
+      }
+    };
+
+    fetchOrderData();
+  }, [searchParams, navigate, toast]);
 
   const copyOrderId = () => {
     if (orderData?.id) {
@@ -149,22 +202,22 @@ const OrderConfirmation = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {orderData.items.map((item) => (
-                      <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                    {orderData.items.map((item, index) => (
+                      <div key={item.productId || index} className="flex items-center space-x-4 p-4 border rounded-lg">
                         <img
-                          src={item.image}
-                          alt={item.name}
+                          src={item.image || "/placeholder.svg"}
+                          alt={item.productName || item.name}
                           className="w-16 h-16 object-cover rounded-md"
                         />
                         <div className="flex-1">
-                          <h4 className="font-medium">{item.name}</h4>
+                          <h4 className="font-medium">{item.productName || item.name}</h4>
                           <p className="text-sm text-muted-foreground">
                             Quantidade: {item.quantity}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">
-                            R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
+                            R$ {(item.subtotal || (item.price * item.quantity)).toFixed(2).replace('.', ',')}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             R$ {item.price.toFixed(2).replace('.', ',')} cada
@@ -190,14 +243,18 @@ const OrderConfirmation = () => {
                       <h4 className="font-semibold mb-2">Endereço de Entrega</h4>
                       <p className="text-muted-foreground">
                         {orderData.shipping.address.street}<br />
-                        {orderData.shipping.address.neighborhood}, {orderData.shipping.address.city} - {orderData.shipping.address.state}<br />
-                        CEP: {orderData.shipping.address.zipCode}
+                        {orderData.shipping.address.neighborhood && `${orderData.shipping.address.neighborhood}, `}
+                        {orderData.shipping.address.city}{orderData.shipping.address.state && ` - ${orderData.shipping.address.state}`}<br />
+                        {orderData.shipping.address.zipCode && `CEP: ${orderData.shipping.address.zipCode}`}
                       </p>
                     </div>
                     <Separator />
                     <div>
                       <h4 className="font-semibold mb-2">Método de Entrega</h4>
                       <p className="text-muted-foreground">{orderData.shipping.method}</p>
+                      {orderData.shipping.company && (
+                        <p className="text-sm text-muted-foreground">{orderData.shipping.company}</p>
+                      )}
                       <p className="text-sm text-primary">
                         Prazo estimado: {orderData.shipping.estimatedDelivery}
                       </p>
@@ -246,6 +303,14 @@ const OrderConfirmation = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Rastreamento (se disponível) */}
+              {orderData.tracking && (
+                <TrackingComponent 
+                  trackingCode={orderData.tracking} 
+                  orderId={orderData.id}
+                />
+              )}
             </div>
 
             {/* Order Summary */}
@@ -259,11 +324,13 @@ const OrderConfirmation = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>Subtotal</span>
-                        <span>R$ {(orderData.total - 0).toFixed(2).replace('.', ',')}</span>
+                        <span>R$ {(orderData.subtotal || (orderData.total - (orderData.shippingCost || 0))).toFixed(2).replace('.', ',')}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Entrega</span>
-                        <span className="text-green-600">Grátis</span>
+                        <span>Entrega ({orderData.shipping.method})</span>
+                        <span>
+                          {(orderData.shippingCost || 0) === 0 ? "Grátis" : `R$ ${(orderData.shippingCost || 0).toFixed(2).replace('.', ',')}`}
+                        </span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">

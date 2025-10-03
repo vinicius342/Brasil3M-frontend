@@ -4,8 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Package, Search, Eye, Truck, CheckCircle, Clock, AlertCircle, ShoppingBag, Star } from "lucide-react";
 import Header from "@/components/Header";
+import TrackingComponent from "@/components/TrackingComponent";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFirestore, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { Link } from "react-router-dom";
@@ -16,6 +18,8 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showTrackingDialog, setShowTrackingDialog] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -90,14 +94,20 @@ const Orders = () => {
   }, [currentUser]);
 
   const handleOrderAction = (orderId: string, action: string) => {
+    const order = orders.find(o => o.id === orderId);
+    
     switch (action) {
       case 'details':
         // Navegar para página de detalhes do pedido
         console.log(`Ver detalhes do pedido ${orderId}`);
+        // navigate(`/order-details/${orderId}`);
         break;
       case 'track':
-        // Abrir página de rastreamento
-        console.log(`Rastrear pedido ${orderId}`);
+        // Abrir modal de rastreamento
+        if (order?.tracking) {
+          setSelectedOrder(order);
+          setShowTrackingDialog(true);
+        }
         break;
       case 'rate':
         // Abrir modal de avaliação
@@ -303,6 +313,24 @@ const Orders = () => {
           </>
         )}
       </div>
+
+      {/* Modal de Rastreamento */}
+      <Dialog open={showTrackingDialog} onOpenChange={setShowTrackingDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Rastreamento do Pedido</DialogTitle>
+            <DialogDescription>
+              Acompanhe o status de entrega do seu pedido em tempo real.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrder?.tracking && (
+            <TrackingComponent 
+              trackingCode={selectedOrder.tracking} 
+              orderId={selectedOrder.id}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

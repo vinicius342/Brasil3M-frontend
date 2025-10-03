@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { EmailVerification } from "@/components/EmailVerification";
+import MelhorEnvioConnection from "@/components/MelhorEnvioConnection";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -445,6 +446,11 @@ const Seller = () => {
               <p className="text-xs text-muted-foreground">visualizações totais</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Conexão MelhorEnvio */}
+        <div className="mb-8">
+          <MelhorEnvioConnection user={currentUser} />
         </div>
 
         <Card>
