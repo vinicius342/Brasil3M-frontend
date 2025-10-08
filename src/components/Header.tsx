@@ -1,20 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { Store, Menu, User } from "lucide-react";
+import { Store, Menu, User, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CartSidebar from "./CartSidebar";
 import brasilLogo2 from "@/assets/brasil-logo-2.png";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
+  };
 
   return (
     <header className="bg-black sticky top-0 z-50 w-full border-b border-border/40">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
           <img src={brasilLogo2} alt="Brasil 3M Logo" className="h-9 w-9" />
-          <span className="text-lg md:text-2xl font-bold" style={{color: '#ddb91a'}}>Brasil 3M</span>
+          <span className="text-lg md:text-2xl font-bold" style={{ color: '#ddb91a' }}>Brasil 3M</span>
         </Link>
         <nav className="hidden md:flex items-center space-x-8">
           <Link to="/" className="text-white hover:text-white transition-colors relative after:absolute after:left-0 after:-bottom-1 after:w-full after:h-0.5 after:bg-yellow-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">
@@ -46,7 +55,19 @@ const Header = () => {
               {!currentUser ? (
                 <Link to="/login" className="text-white hover:text-white transition-colors text-lg">Entrar</Link>
               ) : (
-                <Link to="/profile" className="text-white hover:text-white transition-colors text-lg">Perfil</Link>
+                <>
+                  <Link to="/profile" className="!cursor-pointer text-white hover:text-white transition-colors text-lg flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    Meu Perfil
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="!cursor-pointer text-red-400 hover:text-red-300 transition-colors text-lg flex items-center text-left"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </button>
+                </>
               )}
             </nav>
           </SheetContent>
@@ -58,11 +79,25 @@ const Header = () => {
               <Link to="/login">Entrar</Link>
             </Button>
           ) : (
-            <Button size="sm" className="hidden md:inline-flex" variant="ghost" asChild>
-              <Link to="/profile">
-                <User className="h-5 w-5 text-white" />
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="hidden md:inline-flex" variant="ghost">
+                  <User className="h-5 w-5 text-white" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="!cursor-pointer flex items-center w-full">
+                    <User className="h-4 w-4 mr-2" />
+                    Meu Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="!cursor-pointer flex items-center text-red-600 hover:text-red-700">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

@@ -31,6 +31,7 @@ import ManageProducts from "./pages/ManageProducts";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import OrderManagement from "./pages/OrderManagement";
 import ShippingConfig from "./pages/ShippingConfig";
+import TestMercadoPago from "./pages/TestMercadoPago";
 import NotFound from "./pages/NotFound";
 import { PrivateRoute } from "@/routes/PrivateRoute";
 import MelhorEnvioCallback from "@/pages/MelhorEnvioCallback";
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/auth/melhor-envio/callback" element={<PrivateRoute><MelhorEnvioCallback /></PrivateRoute>} />
             <Route path="/admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
             <Route path="/config" element={<ShippingConfig />} />
+            <Route path="/test-mercadopago" element={<TestMercadoPago />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
