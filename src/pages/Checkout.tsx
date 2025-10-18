@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -49,8 +48,7 @@ const Checkout = () => {
   });
   const [loadingCEP, setLoadingCEP] = useState(false);
   
-  // Estados para pagamento
-  const [processingPayment, setProcessingPayment] = useState(false);
+  // Estados para pagamento removidos - agora usando Checkout Pro simples
 
   // Buscar dados do CEP
   const handleCEPSearch = async (cep: string) => {
@@ -332,200 +330,107 @@ const Checkout = () => {
       return;
     }
 
-    // Verificar se MercadoPago está configurado
-    if (!paymentService.isConfigured()) {
-      toast({
-        variant: "destructive",
-        title: "Erro de configuração",
-        description: "Sistema de pagamento não configurado. Contate o suporte."
-      });
-      return;
-    }
-
-    // Validar dados do pagamento se for cartão de crédito
-    if (selectedPayment === 'credit') {
-      const cardNumber = (document.getElementById('cardNumber') as HTMLInputElement)?.value;
-      const cardName = (document.getElementById('cardName') as HTMLInputElement)?.value;
-      const expiry = (document.getElementById('expiry') as HTMLInputElement)?.value;
-      const cvv = (document.getElementById('cvv') as HTMLInputElement)?.value;
-      const docNumber = (document.getElementById('docNumber') as HTMLInputElement)?.value;
-
-      if (!cardNumber || !cardName || !expiry || !cvv || !docNumber) {
-        toast({
-          variant: "destructive",
-          title: "Dados incompletos",
-          description: "Preencha todos os campos do cartão para continuar."
-        });
-        return;
-      }
-    }
-
     setLoading(true);
-    setProcessingPayment(true);
 
     try {
-      console.log('🚀 Iniciando processamento do pedido...');
-      
-      // Inicializar MercadoPago SDK
-      await paymentService.initializeMercadoPago();
+      console.log('🚀 Criando preferência para Checkout Pro...');
       
       // Buscar endereço selecionado
       const selectedAddressData = addresses.find(addr => addr.id === selectedAddress);
       
-      // Buscar opção de frete selecionada
-      const selectedShippingData = shippingQuotes.find(quote => quote.id === selectedShipping);
-      
-      console.log('📦 Dados do pedido:', {
-        selectedPayment,
-        total,
-        cartItemsCount: cartItems.length,
-        selectedAddress: selectedAddressData?.name,
-        selectedShipping: selectedShippingData?.name
-      });
+      // Preparar items para o MercadoPago
+      const items = cartItems.map((item, index) => ({
+        id: `item_${index}`,
+        title: item.name,
+        description: `Produto ${item.name}`,
+        quantity: item.quantity,
+        unit_price: item.price
+      }));
 
-      // Processar pagamento usando MercadoPago SDK REAL
-      console.log('💳 Processando pagamento via MercadoPago SDK...');
-      let paymentResult;
-
-      if (selectedPayment === 'credit') {
-        // Obter dados do formulário
-        const cardNumber = (document.getElementById('cardNumber') as HTMLInputElement).value.replace(/\s/g, '');
-        const cardName = (document.getElementById('cardName') as HTMLInputElement).value;
-        const expiry = (document.getElementById('expiry') as HTMLInputElement).value;
-        const cvv = (document.getElementById('cvv') as HTMLInputElement).value;
-        const installments = parseInt((document.getElementById('installments') as HTMLSelectElement).value);
-        const docNumber = (document.getElementById('docNumber') as HTMLInputElement).value.replace(/\D/g, '');
-        const docType = (document.getElementById('docType') as HTMLSelectElement).value;
-
-        console.log('💳 Processando cartão com SDK MercadoPago (sem CORS)...');
-
-        // Usar APENAS o SDK - não fazer fetch para API
-        try {
-          // Criar token do cartão via SDK (funciona sem CORS)
-          const cardToken = await paymentService.createCardToken({
-            cardNumber,
-            cardholderName: cardName,
-            expirationMonth: expiry.split('/')[0],
-            expirationYear: `20${expiry.split('/')[1]}`,
-            securityCode: cvv,
-            identificationType: docType,
-            identificationNumber: docNumber
-          });
-
-          console.log('✅ Token criado via SDK:', cardToken);
-
-          // Simular resposta do pagamento baseada no cartão de teste
-          const isApprovedCard = [
-            '5031433215406351', // Mastercard aprovado
-            '4235647728025682', // Visa aprovado
-            '4013540482734978'  // Visa aprovado (nosso teste anterior)
-          ].includes(cardNumber);
-
-          paymentResult = {
-            id: `mp_${Date.now()}`,
-            status: isApprovedCard ? 'approved' : 'rejected',
-            statusDetail: isApprovedCard ? 'accredited' : 'cc_rejected_other_reason',
-            paymentMethodId: cardNumber.startsWith('5') ? 'master' : 'visa',
-            paymentTypeId: 'credit_card',
-            transactionAmount: total,
-            dateCreated: new Date().toISOString(),
-            externalReference: `order_${Date.now()}`,
-            cardToken: cardToken // Incluir o token real
-          };
-
-        } catch (tokenError) {
-          console.error('❌ Erro ao criar token:', tokenError);
-          throw new Error('Erro ao processar dados do cartão. Verifique as informações.');
-        }
-
-      } else if (selectedPayment === 'pix') {
-        console.log('💰 Gerando PIX via SDK (simulação sem CORS)...');
-        
-        // Para PIX - simular resposta sem fazer requisição
-        paymentResult = {
-          id: `pix_${Date.now()}`,
-          status: 'pending',
-          statusDetail: 'pending_waiting_payment',
-          paymentMethodId: 'pix',
-          paymentTypeId: 'bank_transfer',
-          transactionAmount: total,
-          dateCreated: new Date().toISOString(),
-          qrCode: `00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-426655440000520400005303986540${total.toFixed(2).padStart(6, '0')}5802BR5913Brasil3M6009SaoPaulo62070503***6304`,
-          externalReference: `order_${Date.now()}`
-        };
-
-      } else {
-        console.log('🎫 Gerando Boleto via SDK (simulação sem CORS)...');
-        
-        paymentResult = {
-          id: `boleto_${Date.now()}`,
-          status: 'pending',
-          statusDetail: 'pending_waiting_payment',
-          paymentMethodId: 'bolbradesco',
-          paymentTypeId: 'ticket',
-          transactionAmount: total,
-          dateCreated: new Date().toISOString(),
-          ticketUrl: `https://www.mercadopago.com.br/payments/${Date.now()}/ticket?caller_id=123456`,
-          externalReference: `order_${Date.now()}`
-        };
-      }
-
-      console.log('✅ Pagamento real processado:', {
-        id: paymentResult.id,
-        status: paymentResult.status,
-        statusDetail: paymentResult.statusDetail,
-        paymentMethod: paymentResult.paymentMethodId
-      });
-
-      // Processar resultado
-      if (paymentResult.status === 'approved') {
-        clearCart();
-        toast({
-          title: "Pagamento aprovado!",
-          description: "Seu pedido foi confirmado com sucesso."
-        });
-      } else {
-        toast({
-          title: paymentResult.status === 'pending' ? "Pagamento pendente" : "Pagamento rejeitado",
-          description: paymentResult.status === 'pending' ? 
-            "Aguardando confirmação do pagamento." : 
-            "O pagamento foi rejeitado. Tente novamente."
+      // Adicionar frete como item se houver
+      if (shippingCost > 0) {
+        items.push({
+          id: 'shipping',
+          title: 'Frete',
+          description: selectedShippingQuote?.name || 'Entrega',
+          quantity: 1,
+          unit_price: shippingCost
         });
       }
 
-      // Redirecionar para confirmação
-      console.log('🎯 Redirecionando para confirmação...');
-      navigate(`/order-confirmation?paymentId=${paymentResult.id}&status=${paymentResult.status}&orderId=${paymentResult.externalReference}`);
+      // Criar preferência do Checkout Pro
+      const preferenceResult = await paymentService.createCheckoutPreference({
+        items,
+        payer: {
+          name: currentUser.displayName?.split(' ')[0] || 'Cliente',
+          surname: currentUser.displayName?.split(' ').slice(1).join(' ') || '',
+          email: currentUser.email || '',
+          identification: {
+            type: 'CPF',
+            number: '12345678909' // Você pode coletar isso em um campo do formulário
+          }
+        },
+        back_urls: {
+          success: `https://brasil-3m-91243.web.app/checkout/success`,
+          failure: `https://brasil-3m-91243.web.app/checkout/failure`,
+          pending: `https://brasil-3m-91243.web.app/checkout/pending`
+        },
+        external_reference: `order_${Date.now()}_${currentUser.uid}`
+      });
 
-    } catch (error) {
-      console.error("❌ Erro detalhado ao processar pedido:", error);
-      console.error("Stack trace:", error.stack);
-      
-      // Verificar tipo específico de erro
-      let errorMessage = "Ocorreu um erro ao processar seu pedido. Tente novamente.";
-      
-      if (error.message?.includes('CORS') || error.message?.includes('fetch')) {
-        errorMessage = "⚠️ CORS Error: Isso é normal em desenvolvimento. Para cartão use dados de teste, PIX/Boleto funcionam mesmo com CORS.";
-      } else if (error.code === 'permission-denied') {
-        errorMessage = "Erro de permissão. Verifique se está logado.";
-      } else if (error.code === 'unavailable') {
-        errorMessage = "Serviço temporariamente indisponível. Tente novamente.";
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (preferenceResult.success && preferenceResult.data) {
+        console.log('✅ Preferência criada:', preferenceResult.data);
+        
+        // Salvar dados do pedido no Firebase antes de redirecionar
+        const db = getFirestore();
+        const orderData = {
+          userId: currentUser.uid,
+          items: cartItems,
+          total,
+          subtotal,
+          shipping: {
+            cost: shippingCost,
+            option: selectedShippingQuote
+          },
+          address: selectedAddressData,
+          paymentMethod: 'mercadopago_checkout_pro',
+          preferenceId: preferenceResult.data.id,
+          status: 'pending_payment',
+          createdAt: serverTimestamp(),
+          external_reference: `order_${Date.now()}_${currentUser.uid}`
+        };
+
+        await addDoc(collection(db, 'orders'), orderData);
+        
+        // Redirecionar para o Checkout Pro do MercadoPago
+        // Em sandbox, usar sandbox_init_point; em produção, usar init_point
+        const checkoutUrl = preferenceResult.data.sandbox_init_point || preferenceResult.data.init_point;
+        
+        toast({
+          title: "Redirecionando...",
+          description: "Você será direcionado para o MercadoPago para finalizar o pagamento."
+        });
+        
+        // Redirecionar para o MercadoPago
+        window.location.href = checkoutUrl;
+        
+      } else {
+        throw new Error(preferenceResult.error || 'Erro ao criar preferência de pagamento');
       }
-      
+
+    } catch (error: any) {
+      console.error('❌ Erro ao finalizar pedido:', error);
       toast({
         variant: "destructive",
-        title: "Erro ao processar pedido",
-        description: errorMessage
+        title: "Erro no checkout",
+        description: error.message || "Erro ao processar pagamento. Tente novamente."
       });
     } finally {
       setLoading(false);
-      setProcessingPayment(false);
     }
   };
 
-  // Handlers para pagamento - removidos pois agora processamos inline
+  // Handlers para pagamento removidos - agora usando Checkout Pro
 
   return (
     <div className="min-h-screen bg-background">
@@ -821,108 +726,31 @@ const Checkout = () => {
                   <CreditCard className="h-5 w-5" />
                   <span>Forma de Pagamento</span>
                 </CardTitle>
-                <CardDescription>Escolha como você quer pagar</CardDescription>
+                <CardDescription>Você será redirecionado para o MercadoPago para finalizar o pagamento</CardDescription>
               </CardHeader>
               <CardContent>
-                <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment}>
-                  <div className="space-y-4">
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="credit" className="mt-1" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold">Cartão de Crédito</h4>
-                        <p className="text-sm text-muted-foreground">Visa, Mastercard, Elo</p>
-                        <p className="text-xs text-muted-foreground mt-1">Processamento seguro via MercadoPago</p>
-                        
-                        {/* Formulário completo do cartão quando selecionado */}
-                        {selectedPayment === "credit" && (
-                          <div className="mt-4 p-4 border-t bg-gray-50 rounded">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="md:col-span-2">
-                                <Label htmlFor="cardNumber">Número do Cartão *</Label>
-                                <Input 
-                                  id="cardNumber" 
-                                  placeholder="0000 0000 0000 0000"
-                                  maxLength={19}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="cardName">Nome no Cartão *</Label>
-                                <Input 
-                                  id="cardName" 
-                                  placeholder="Nome como está no cartão"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="expiry">Validade (MM/AA) *</Label>
-                                <Input 
-                                  id="expiry" 
-                                  placeholder="11/25"
-                                  maxLength={5}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="cvv">CVV *</Label>
-                                <Input 
-                                  id="cvv" 
-                                  placeholder="123"
-                                  maxLength={4}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="installments">Parcelas *</Label>
-                                <select 
-                                  id="installments"
-                                  className="w-full p-2 border rounded-md"
-                                >
-                                  <option value="1">1x de R$ {total.toFixed(2).replace('.', ',')} sem juros</option>
-                                  <option value="2">2x de R$ {(total/2).toFixed(2).replace('.', ',')} sem juros</option>
-                                  <option value="3">3x de R$ {(total/3).toFixed(2).replace('.', ',')} sem juros</option>
-                                  <option value="6">6x de R$ {(total/6).toFixed(2).replace('.', ',')} sem juros</option>
-                                  <option value="12">12x de R$ {(total/12).toFixed(2).replace('.', ',')} sem juros</option>
-                                </select>
-                              </div>
-                              <div>
-                                <Label htmlFor="docType">Tipo de Documento *</Label>
-                                <select 
-                                  id="docType"
-                                  className="w-full p-2 border rounded-md"
-                                >
-                                  <option value="CPF">CPF</option>
-                                  <option value="CNPJ">CNPJ</option>
-                                </select>
-                              </div>
-                              <div className="md:col-span-2">
-                                <Label htmlFor="docNumber">Número do Documento *</Label>
-                                <Input 
-                                  id="docNumber" 
-                                  placeholder="000.000.000-00"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                <div className="space-y-4">
+                  <div className="p-4 border rounded-lg bg-blue-50">
+                    <div className="flex items-center space-x-3">
+                      <CreditCard className="h-6 w-6 text-blue-600" />
+                      <div>
+                        <h4 className="font-semibold text-blue-900">Checkout Seguro MercadoPago</h4>
+                        <p className="text-sm text-blue-700">
+                          💳 Cartão de crédito e débito<br />
+                          💰 PIX<br />
+                          🎫 Boleto bancário
+                        </p>
                       </div>
                     </div>
-
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="pix" className="mt-1" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold">PIX</h4>
-                        <p className="text-sm text-muted-foreground">Pagamento instantâneo</p>
-                        <p className="text-xs text-muted-foreground mt-1">QR Code válido por 30 minutos</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="boleto" className="mt-1" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold">Boleto Bancário</h4>
-                        <p className="text-sm text-muted-foreground">Vencimento em 3 dias úteis</p>
-                        <p className="text-xs text-muted-foreground mt-1">Aprovação em até 2 dias úteis</p>
-                      </div>
+                    <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                      <p className="text-xs text-blue-600">
+                        ✅ <strong>Mais segurança:</strong> Seus dados de pagamento são processados diretamente pelo MercadoPago<br />
+                        ✅ <strong>Praticidade:</strong> Todas as formas de pagamento em um lugar<br />
+                        ✅ <strong>Confiança:</strong> Certificação PCI DSS
+                      </p>
                     </div>
                   </div>
-                </RadioGroup>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -985,10 +813,9 @@ const Checkout = () => {
                     </label>
                   </div>
 
-                  <Button onClick={handleFinishOrder} className="w-full" disabled={loading || processingPayment}>
+                  <Button onClick={handleFinishOrder} className="w-full" disabled={loading}>
                     <Shield className="h-4 w-4 mr-2" />
-                    {loading ? "Processando..." : 
-                     processingPayment ? "Processando Pagamento..." : "Finalizar Compra"}
+                    {loading ? "Criando checkout..." : "Finalizar Compra"}
                   </Button>
 
                   <div className="text-center text-xs text-muted-foreground">

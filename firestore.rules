@@ -46,15 +46,19 @@ service cloud.firestore {
     // Pedidos - usuário pode ver seus pedidos, vendedor vê pedidos de seus produtos, admin vê tudo
     match /orders/{orderId} {
       allow read: if request.auth != null &&
-        (resource.data.buyerId == request.auth.uid ||
+        (resource.data.userId == request.auth.uid ||
+         resource.data.buyerId == request.auth.uid ||
          resource.data.sellerId == request.auth.uid ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"));
       
-      allow create: if request.auth != null && request.resource.data.buyerId == request.auth.uid;
+      allow create: if request.auth != null && 
+        (request.resource.data.userId == request.auth.uid ||
+         request.resource.data.buyerId == request.auth.uid);
       
       allow update: if request.auth != null &&
-        (resource.data.sellerId == request.auth.uid ||
+        (resource.data.userId == request.auth.uid ||
+         resource.data.sellerId == request.auth.uid ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"));
     }

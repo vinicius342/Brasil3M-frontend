@@ -28,6 +28,9 @@ import Admin from "./pages/Admin";
 import Seller from "./pages/Seller";
 import AddProduct from "./pages/AddProduct";
 import ManageProducts from "./pages/ManageProducts";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import CheckoutFailure from "./pages/CheckoutFailure";
+import CheckoutPending from "./pages/CheckoutPending";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import OrderManagement from "./pages/OrderManagement";
 import ShippingConfig from "./pages/ShippingConfig";
@@ -63,6 +66,9 @@ const App = () => (
             <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
             <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
             <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
+            <Route path="/checkout/success" element={<CheckoutSuccess />} />
+            <Route path="/checkout/failure" element={<CheckoutFailure />} />
+            <Route path="/checkout/pending" element={<CheckoutPending />} />
             <Route path="/order-confirmation" element={<PrivateRoute><OrderConfirmation /></PrivateRoute>} />
             <Route path="/about" element={<About />} />
             <Route path="/support" element={<Support />} />
