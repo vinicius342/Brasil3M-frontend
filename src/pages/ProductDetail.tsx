@@ -102,7 +102,12 @@ const ProductDetail = () => {
       setShippingQuotes(quotes);
     } catch (error) {
       console.error('Erro ao calcular frete:', error);
-      setCepError("Erro ao calcular frete. Tente novamente.");
+      setCepError(
+        error instanceof Error 
+          ? error.message 
+          : "Erro ao calcular frete. Verifique o CEP e tente novamente."
+      );
+      setShippingQuotes([]); // Limpar cotações ao invés de mostrar valores falsos
     } finally {
       setLoadingShipping(false);
     }

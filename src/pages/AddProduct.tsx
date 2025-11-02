@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,13 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, X } from "lucide-react";
+import { ArrowLeft, Upload, X, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { getFirestore, collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import imageCompression from "browser-image-compression";
 
 const AddProduct = () => {
-  const [images, setImages] = useState<string[]>([]);
+  const { currentUser } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState("");
+  const [categories, setCategories] = useState<any[]>([]);
   
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -21,13 +33,37 @@ const AddProduct = () => {
     description: "",
     price: "",
     comparePrice: "",
-    category: "",
+    categoryId: "",
     stock: "",
+    sku: "",
     weight: "", // em kg
     length: "", // em cm
     width: "", // em cm  
     height: "" // em cm
   });
+
+  // Buscar categorias do Firestore
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const db = getFirestore();
+        const categoriesQuery = query(
+          collection(db, 'categories'),
+          where('status', '==', 'active')
+        );
+        const categoriesSnapshot = await getDocs(categoriesQuery);
+        const categoriesList = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setCategories(categoriesList);
+      } catch (error) {
+        console.error("Erro ao buscar categorias:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const addTag = () => {
     if (currentTag.trim() && !tags.includes(currentTag.trim())) {
@@ -43,13 +79,18 @@ const AddProduct = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
-      setImages([...images, ...newImages]);
+      const filesArray = Array.from(files);
+      setImageFiles([...imageFiles, ...filesArray]);
+      
+      // Criar previews
+      const newPreviews = filesArray.map(file => URL.createObjectURL(file));
+      setImagePreviews([...imagePreviews, ...newPreviews]);
     }
   };
 
   const removeImage = (indexToRemove: number) => {
-    setImages(images.filter((_, index) => index !== indexToRemove));
+    setImageFiles(imageFiles.filter((_, index) => index !== indexToRemove));
+    setImagePreviews(imagePreviews.filter((_, index) => index !== indexToRemove));
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -59,30 +100,128 @@ const AddProduct = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentUser) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Você precisa estar logado para adicionar produtos."
+      });
+      return;
+    }
+
+    // Validações
+    if (!formData.name || !formData.description || !formData.price || !formData.stock || !formData.categoryId) {
+      toast({
+        variant: "destructive",
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios."
+      });
+      return;
+    }
+
+    if (!formData.weight || !formData.length || !formData.width || !formData.height) {
+      toast({
+        variant: "destructive",
+        title: "Dados de frete obrigatórios",
+        description: "Preencha o peso e dimensões do produto para cálculo de frete."
+      });
+      return;
+    }
+
+    if (imageFiles.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Imagens obrigatórias",
+        description: "Adicione pelo menos uma imagem do produto."
+      });
+      return;
+    }
+
+    setLoading(true);
+    
     try {
-      // Aqui você salvaria no Firebase/Firestore
+      const db = getFirestore();
+      const storage = getStorage();
+      
+      // Upload das imagens com compressão
+      toast({
+        title: "Processando imagens...",
+        description: `Comprimindo e fazendo upload de ${imageFiles.length} imagem(ns)...`
+      });
+
+      const imageUrls: string[] = [];
+      
+      for (const file of imageFiles) {
+        try {
+          // Comprimir imagem
+          const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1024,
+            useWebWorker: true
+          };
+          const compressedFile = await imageCompression(file, options);
+          
+          // Upload para Storage
+          const timestamp = Date.now();
+          const fileName = `${currentUser.uid}_${timestamp}_${file.name}`;
+          const storageRef = ref(storage, `products/${fileName}`);
+          await uploadBytes(storageRef, compressedFile);
+          
+          // Obter URL
+          const downloadURL = await getDownloadURL(storageRef);
+          imageUrls.push(downloadURL);
+        } catch (error) {
+          console.error("Erro ao fazer upload da imagem:", error);
+          throw new Error(`Erro ao fazer upload da imagem ${file.name}`);
+        }
+      }
+
+      // Salvar produto no Firestore
       const productData = {
-        ...formData,
+        name: formData.name,
+        description: formData.description,
         price: parseFloat(formData.price),
         comparePrice: formData.comparePrice ? parseFloat(formData.comparePrice) : null,
         stock: parseInt(formData.stock),
+        sku: formData.sku || null,
         weight: parseFloat(formData.weight),
         dimensions: {
           length: parseFloat(formData.length),
           width: parseFloat(formData.width),
           height: parseFloat(formData.height)
         },
-        images,
+        images: imageUrls,
         tags,
-        createdAt: new Date()
+        categoryId: formData.categoryId,
+        sellerId: currentUser.uid,
+        status: "active",
+        views: 0,
+        salesCount: 0,
+        rating: 0,
+        reviewsCount: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
-      console.log('Dados do produto para salvar:', productData);
-      alert('Produto salvo com sucesso! (implementar salvamento no Firebase)');
+      await addDoc(collection(db, 'products'), productData);
       
-    } catch (error) {
+      toast({
+        title: "Produto cadastrado!",
+        description: "Seu produto foi adicionado com sucesso."
+      });
+
+      // Redirecionar para o painel do vendedor
+      navigate('/seller');
+      
+    } catch (error: any) {
       console.error('Erro ao salvar produto:', error);
-      alert('Erro ao salvar produto');
+      toast({
+        variant: "destructive",
+        title: "Erro ao cadastrar produto",
+        description: error.message || "Erro ao salvar produto. Tente novamente."
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -113,32 +252,45 @@ const AddProduct = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="name">Nome do Produto</Label>
-                    <Input id="name" placeholder="Digite o nome do produto" />
+                    <Label htmlFor="name">Nome do Produto *</Label>
+                    <Input 
+                      id="name" 
+                      placeholder="Digite o nome do produto"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      required
+                    />
                   </div>
                   
                   <div>
-                    <Label htmlFor="category">Categoria</Label>
-                    <Select>
+                    <Label htmlFor="category">Categoria *</Label>
+                    <Select
+                      value={formData.categoryId}
+                      onValueChange={(value) => handleInputChange('categoryId', value)}
+                      required
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="electronics">Eletrônicos</SelectItem>
-                        <SelectItem value="fashion">Moda</SelectItem>
-                        <SelectItem value="home">Casa e Jardim</SelectItem>
-                        <SelectItem value="sports">Esportes</SelectItem>
-                        <SelectItem value="books">Livros</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label htmlFor="description">Descrição</Label>
+                    <Label htmlFor="description">Descrição *</Label>
                     <Textarea 
                       id="description" 
                       placeholder="Descreva seu produto detalhadamente"
                       rows={4}
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      required
                     />
                   </div>
                 </CardContent>
@@ -150,26 +302,53 @@ const AddProduct = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="price">Preço (R$)</Label>
-                    <Input id="price" type="number" step="0.01" placeholder="0,00" />
+                    <Label htmlFor="price">Preço (R$) *</Label>
+                    <Input 
+                      id="price" 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0,00"
+                      value={formData.price}
+                      onChange={(e) => handleInputChange('price', e.target.value)}
+                      required
+                    />
                   </div>
                   
                   <div>
                     <Label htmlFor="comparePrice">Preço Comparativo (R$)</Label>
-                    <Input id="comparePrice" type="number" step="0.01" placeholder="0,00" />
+                    <Input 
+                      id="comparePrice" 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0,00"
+                      value={formData.comparePrice}
+                      onChange={(e) => handleInputChange('comparePrice', e.target.value)}
+                    />
                     <p className="text-sm text-muted-foreground mt-1">
                       Preço original para mostrar desconto
                     </p>
                   </div>
 
                   <div>
-                    <Label htmlFor="stock">Quantidade em Estoque</Label>
-                    <Input id="stock" type="number" placeholder="0" />
+                    <Label htmlFor="stock">Quantidade em Estoque *</Label>
+                    <Input 
+                      id="stock" 
+                      type="number" 
+                      placeholder="0"
+                      value={formData.stock}
+                      onChange={(e) => handleInputChange('stock', e.target.value)}
+                      required
+                    />
                   </div>
 
                   <div>
                     <Label htmlFor="sku">SKU (Código)</Label>
-                    <Input id="sku" placeholder="SKU do produto" />
+                    <Input 
+                      id="sku" 
+                      placeholder="SKU do produto"
+                      value={formData.sku}
+                      onChange={(e) => handleInputChange('sku', e.target.value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -201,12 +380,12 @@ const AddProduct = () => {
                     </Label>
                   </div>
                   
-                  {images.length > 0 && (
+                  {imagePreviews.length > 0 && (
                     <div className="grid grid-cols-4 gap-4">
-                      {images.map((image, index) => (
+                      {imagePreviews.map((preview, index) => (
                         <div key={index} className="relative">
                           <img
-                            src={image}
+                            src={preview}
                             alt={`Preview ${index}`}
                             className="w-full h-24 object-cover rounded-lg"
                           />
@@ -214,6 +393,7 @@ const AddProduct = () => {
                             variant="destructive"
                             size="sm"
                             className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                            type="button"
                             onClick={() => removeImage(index)}
                           >
                             <X className="h-4 w-4" />
@@ -337,9 +517,20 @@ const AddProduct = () => {
 
             <div className="flex gap-4 justify-end">
               <Link to="/seller">
-                <Button variant="outline" type="button">Cancelar</Button>
+                <Button variant="outline" type="button" disabled={loading}>
+                  Cancelar
+                </Button>
               </Link>
-              <Button type="submit">Salvar Produto</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar Produto'
+                )}
+              </Button>
             </div>
           </form>
         </div>

@@ -110,22 +110,15 @@ const Checkout = () => {
         console.error('Erro ao calcular frete:', error);
         toast({
           variant: "destructive",
-          title: "Erro no frete",
-          description: "Não foi possível calcular o frete. Tente novamente."
+          title: "Erro ao calcular frete",
+          description: error instanceof Error 
+            ? error.message 
+            : "Não foi possível calcular o frete. Verifique o endereço e tente novamente."
         });
         
-        // Fallback para opções padrão
-        setShippingQuotes([
-          {
-            id: 'standard',
-            name: 'Entrega Padrão',
-            price: 0,
-            deliveryTime: '5-7 dias úteis',
-            company: 'Brasil 3M',
-            service: 'Frete Grátis'
-          }
-        ]);
-        setSelectedShipping('standard');
+        // Limpar cotações - não usar valores falsos
+        setShippingQuotes([]);
+        setSelectedShipping(null);
       } finally {
         setLoadingShipping(false);
       }
@@ -326,6 +319,15 @@ const Checkout = () => {
         variant: "destructive",
         title: "Endereço obrigatório",
         description: "Selecione um endereço de entrega para continuar."
+      });
+      return;
+    }
+
+    if (!selectedShipping || shippingQuotes.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Frete não calculado",
+        description: "Não foi possível calcular o frete. Verifique o endereço de entrega e tente novamente."
       });
       return;
     }
@@ -728,30 +730,6 @@ const Checkout = () => {
                 </CardTitle>
                 <CardDescription>Você será redirecionado para o MercadoPago para finalizar o pagamento</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg bg-blue-50">
-                    <div className="flex items-center space-x-3">
-                      <CreditCard className="h-6 w-6 text-blue-600" />
-                      <div>
-                        <h4 className="font-semibold text-blue-900">Checkout Seguro MercadoPago</h4>
-                        <p className="text-sm text-blue-700">
-                          💳 Cartão de crédito e débito<br />
-                          💰 PIX<br />
-                          🎫 Boleto bancário
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                      <p className="text-xs text-blue-600">
-                        ✅ <strong>Mais segurança:</strong> Seus dados de pagamento são processados diretamente pelo MercadoPago<br />
-                        ✅ <strong>Praticidade:</strong> Todas as formas de pagamento em um lugar<br />
-                        ✅ <strong>Confiança:</strong> Certificação PCI DSS
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
           </div>
 

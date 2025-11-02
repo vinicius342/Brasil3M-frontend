@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Package, DollarSign, Eye, Edit, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
@@ -38,17 +38,8 @@ const Seller = () => {
   const [sales, setSales] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    description: "",
-    price: "",
-    stock: "",
-    categoryId: "",
-    images: ""
-  });
   const navigate = useNavigate();
   const db = getFirestore();
 
@@ -187,42 +178,7 @@ const Seller = () => {
     fetchSales();
   }, [currentUser, db]);
 
-  // Função para adicionar produto
-  const addProduct = async () => {
-    if (!newProduct.name.trim() || !newProduct.description.trim() || !newProduct.price || !newProduct.stock || !newProduct.categoryId) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
-      return;
-    }
 
-    try {
-      await addDoc(collection(db, "products"), {
-        name: newProduct.name,
-        description: newProduct.description,
-        price: parseFloat(newProduct.price),
-        stock: parseInt(newProduct.stock),
-        categoryId: newProduct.categoryId,
-        images: newProduct.images ? newProduct.images.split(',').map(url => url.trim()) : [],
-        sellerId: currentUser.uid,
-        status: "active",
-        salesCount: 0,
-        views: 0,
-        createdAt: serverTimestamp()
-      });
-
-      setNewProduct({
-        name: "",
-        description: "",
-        price: "",
-        stock: "",
-        categoryId: "",
-        images: ""
-      });
-      setIsAddProductOpen(false);
-    } catch (error) {
-      console.error("Erro ao adicionar produto:", error);
-      alert("Erro ao adicionar produto. Tente novamente.");
-    }
-  };
 
   // Função para editar produto
   const handleEditProduct = (product) => {
@@ -304,102 +260,12 @@ const Seller = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Painel do Vendedor</h1>
             <p className="text-muted-foreground">Gerencie seus produtos e vendas</p>
           </div>
-          <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-            <DialogTrigger asChild>
-              <Button disabled={!isEmailVerified}>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Produto
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Adicionar Novo Produto</DialogTitle>
-                <DialogDescription>
-                  Preencha os dados para adicionar um novo produto ao seu catálogo.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-name" className="text-right">Nome *</Label>
-                  <Input
-                    id="product-name"
-                    value={newProduct.name}
-                    onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Ex: Smartphone Samsung Galaxy"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-description" className="text-right">Descrição *</Label>
-                  <Textarea
-                    id="product-description"
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Descreva as características do produto..."
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-price" className="text-right">Preço *</Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    step="0.01"
-                    value={newProduct.price}
-                    onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
-                    className="col-span-3"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-stock" className="text-right">Estoque *</Label>
-                  <Input
-                    id="product-stock"
-                    type="number"
-                    value={newProduct.stock}
-                    onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Quantidade disponível"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-category" className="text-right">Categoria *</Label>
-                  <Select
-                    value={newProduct.categoryId}
-                    onValueChange={(value) => setNewProduct({...newProduct, categoryId: value})}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Selecione uma categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product-images" className="text-right">Imagens</Label>
-                  <Input
-                    id="product-images"
-                    value={newProduct.images}
-                    onChange={(e) => setNewProduct({...newProduct, images: e.target.value})}
-                    className="col-span-3"
-                    placeholder="URLs das imagens separadas por vírgula"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddProductOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={addProduct}>Adicionar Produto</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Link to="/seller/add-product">
+            <Button disabled={!isEmailVerified}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Produto
+            </Button>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -478,13 +344,12 @@ const Seller = () => {
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Nenhum produto encontrado. 
-                      <Button 
-                        variant="link" 
-                        className="p-0 h-auto text-primary hover:underline ml-1"
-                        onClick={() => setIsAddProductOpen(true)}
+                      <Link 
+                        to="/seller/add-product"
+                        className="text-primary hover:underline ml-1"
                       >
                         Adicione seu primeiro produto
-                      </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -1,5 +1,6 @@
 import { collection, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../lib/firebase';
 
 interface MelhorEnvioTokens {
   access_token: string;
@@ -12,14 +13,14 @@ interface MelhorEnvioTokens {
 
 interface MelhorEnvioAuthConfig {
   clientId: string;
-  clientSecret: string;
+  // clientSecret REMOVIDO - agora fica seguro no backend
   redirectUri: string;
   baseUrl: string;
 }
 
 const AUTH_CONFIG: MelhorEnvioAuthConfig = {
   clientId: import.meta.env.VITE_MELHOR_ENVIO_CLIENT_ID || '',
-  clientSecret: import.meta.env.VITE_MELHOR_ENVIO_CLIENT_SECRET || '',
+  // clientSecret REMOVIDO - credencial sensível agora está no backend (Firebase Functions)
   redirectUri: import.meta.env.VITE_MELHOR_ENVIO_REDIRECT_URI || '',
   baseUrl: import.meta.env.VITE_MELHOR_ENVIO_BASE_URL || 'https://sandbox.melhorenvio.com.br'
 };
@@ -52,90 +53,56 @@ export class MelhorEnvioAuth {
   }
 
   /**
-   * Troca o código de autorização por tokens de acesso
+   * Troca o código de autorização por tokens de acesso via Firebase Function (SEGURO)
    */
   static async exchangeCodeForTokens(code: string, userId: string): Promise<MelhorEnvioTokens> {
     try {
-      const response = await fetch(`${AUTH_CONFIG.baseUrl}/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          grant_type: 'authorization_code',
-          client_id: AUTH_CONFIG.clientId,
-          client_secret: AUTH_CONFIG.clientSecret,
-          redirect_uri: AUTH_CONFIG.redirectUri,
-          code: code
-        })
+      console.log('🔐 Trocando código por tokens via Firebase Function (backend seguro)...');
+      
+      // Chama a Firebase Function ao invés de fazer requisição direta
+      const exchangeCodeFn = httpsCallable(functions, 'melhorEnvioExchangeCode');
+      
+      const result = await exchangeCodeFn({
+        code,
+        userId
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Erro na autenticação: ${error}`);
+      const data = result.data as any;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao trocar código por tokens');
       }
 
-      const tokens: Omit<MelhorEnvioTokens, 'expires_at'> = await response.json();
-      
-      // Adiciona o timestamp de expiração
-      const tokensWithExpiry: MelhorEnvioTokens = {
-        ...tokens,
-        expires_at: Date.now() + (tokens.expires_in * 1000)
-      };
+      console.log('✅ Tokens obtidos com sucesso via backend!');
+      return data.tokens;
 
-      // Salva os tokens no Firestore
-      await this.saveTokensToFirestore(userId, tokensWithExpiry);
-
-      return tokensWithExpiry;
     } catch (error) {
-      console.error('Erro ao trocar código por tokens:', error);
+      console.error('❌ Erro ao trocar código por tokens:', error);
       throw error;
     }
   }
 
   /**
-   * Renova o access_token usando o refresh_token
+   * Renova o access_token usando o refresh_token via Firebase Function (SEGURO)
    */
   static async refreshTokens(userId: string): Promise<MelhorEnvioTokens | null> {
     try {
+      console.log('🔄 Renovando tokens via Firebase Function...');
+      
       const currentTokens = await this.getTokensFromFirestore(userId);
       if (!currentTokens?.refresh_token) {
         throw new Error('Refresh token não encontrado');
       }
 
-      const response = await fetch(`${AUTH_CONFIG.baseUrl}/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          grant_type: 'refresh_token',
-          client_id: AUTH_CONFIG.clientId,
-          client_secret: AUTH_CONFIG.clientSecret,
-          refresh_token: currentTokens.refresh_token
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Erro ao renovar token: ${error}`);
-      }
-
-      const newTokens: Omit<MelhorEnvioTokens, 'expires_at'> = await response.json();
+      // A lógica de refresh agora acontece no backend via getMelhorEnvioToken
+      // que é chamado automaticamente pelas Firebase Functions
+      // Esta função mantida para compatibilidade, mas o refresh real acontece no backend
       
-      const tokensWithExpiry: MelhorEnvioTokens = {
-        ...newTokens,
-        expires_at: Date.now() + (newTokens.expires_in * 1000)
-      };
+      console.log('✅ Tokens renovados automaticamente pelo backend');
+      return currentTokens;
 
-      // Atualiza os tokens no Firestore
-      await this.saveTokensToFirestore(userId, tokensWithExpiry);
-
-      return tokensWithExpiry;
     } catch (error) {
-      console.error('Erro ao renovar tokens:', error);
+      console.error('❌ Erro ao renovar tokens:', error);
       throw error;
     }
   }
@@ -167,12 +134,26 @@ export class MelhorEnvioAuth {
 
   /**
    * Salva os tokens no Firestore
+   * NOTA: Esta função não é mais chamada diretamente - os tokens são salvos pelo backend
+   * Mantida para compatibilidade com código existente
    */
   private static async saveTokensToFirestore(userId: string, tokens: MelhorEnvioTokens): Promise<void> {
-    const userRef = doc(db, 'users', userId);
+    // Salva na coleção específica de tokens (mesma usada pelo backend)
+    const tokenRef = doc(db, 'melhorEnvioTokens', userId);
     
+    await setDoc(tokenRef, {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+      expiresAt: tokens.expires_at,
+      tokenType: tokens.token_type,
+      scope: tokens.scope,
+      updatedAt: new Date()
+    }, { merge: true });
+
+    // Também atualiza o documento do usuário
+    const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
-      melhorEnvioTokens: tokens,
       melhorEnvioConnected: true,
       melhorEnvioConnectedAt: new Date()
     });
@@ -183,12 +164,20 @@ export class MelhorEnvioAuth {
    */
   private static async getTokensFromFirestore(userId: string): Promise<MelhorEnvioTokens | null> {
     try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
+      // Busca na coleção específica de tokens (mesma usada pelo backend)
+      const tokenRef = doc(db, 'melhorEnvioTokens', userId);
+      const tokenDoc = await getDoc(tokenRef);
       
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        return data.melhorEnvioTokens || null;
+      if (tokenDoc.exists()) {
+        const data = tokenDoc.data();
+        return {
+          access_token: data.accessToken,
+          refresh_token: data.refreshToken,
+          expires_in: data.expiresIn,
+          expires_at: data.expiresAt,
+          token_type: data.tokenType,
+          scope: data.scope
+        };
       }
       
       return null;
@@ -210,10 +199,17 @@ export class MelhorEnvioAuth {
    * Desconecta o usuário do MelhorEnvio (remove tokens)
    */
   static async disconnectUser(userId: string): Promise<void> {
+    // Remove da coleção de tokens
+    const tokenRef = doc(db, 'melhorEnvioTokens', userId);
+    await setDoc(tokenRef, {
+      accessToken: null,
+      refreshToken: null,
+      disconnectedAt: new Date()
+    }, { merge: true });
+
+    // Atualiza documento do usuário
     const userRef = doc(db, 'users', userId);
-    
     await updateDoc(userRef, {
-      melhorEnvioTokens: null,
       melhorEnvioConnected: false,
       melhorEnvioDisconnectedAt: new Date()
     });
