@@ -7,13 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { ShoppingCart, Heart, Star, Truck, Shield, RotateCcw, Calculator, MapPin } from "lucide-react";
+import { ShoppingCart, Heart, Star, Truck, Shield, RotateCcw, Calculator, MapPin, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { calculateShipping, searchCEP, ShippingQuote } from "@/services/shippingService";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const fallbackImages = [
   "https://images.unsplash.com/photo-1721322800607-8c38375eef04?w=400&h=400&fit=crop",
@@ -33,23 +35,127 @@ const ProductDetail = () => {
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [cepError, setCepError] = useState("");
+  const [validatingProduct, setValidatingProduct] = useState(false);
   const db = getFirestore();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { toast } = useToast();
 
-  const handleAddToCart = () => {
-    if (product && quantity > 0) {
+  // Função para validar produto em tempo real
+  const validateProduct = async () => {
+    if (!id) return null;
+    
+    try {
+      const productRef = doc(db, "products", id);
+      const productSnap = await getDoc(productRef);
+      
+      if (!productSnap.exists()) {
+        return { valid: false, error: "Produto não encontrado" };
+      }
+      
+      const productData = productSnap.data();
+      
+      // Validar status
+      if (productData.status !== 'active') {
+        return { valid: false, error: "Este produto não está mais disponível para venda" };
+      }
+      
+      // Validar estoque
+      if (productData.stock === 0) {
+        return { valid: false, error: "Produto fora de estoque" };
+      }
+      
+      return { 
+        valid: true, 
+        stock: productData.stock,
+        minQuantity: productData.minQuantity,
+        maxQuantity: productData.maxQuantity,
+        status: productData.status
+      };
+    } catch (error) {
+      console.error("Erro ao validar produto:", error);
+      return { valid: false, error: "Erro ao validar produto" };
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    
+    setValidatingProduct(true);
+    
+    try {
+      // Validar produto em tempo real
+      const validation = await validateProduct();
+      
+      if (!validation || !validation.valid) {
+        toast({
+          variant: "destructive",
+          title: "Não foi possível adicionar ao carrinho",
+          description: validation?.error || "Produto indisponível"
+        });
+        return;
+      }
+      
+      // Validar quantidade em relação ao estoque atual
+      if (quantity > validation.stock) {
+        toast({
+          variant: "destructive",
+          title: "Quantidade indisponível",
+          description: `Este produto tem apenas ${validation.stock} unidade(s) disponível(is).`
+        });
+        setQuantity(Math.min(quantity, validation.stock));
+        return;
+      }
+      
+      // Validar quantidade mínima (se configurada)
+      if (validation.minQuantity && quantity < validation.minQuantity) {
+        toast({
+          variant: "destructive",
+          title: "Quantidade abaixo do mínimo",
+          description: `Este produto requer quantidade mínima de ${validation.minQuantity} unidade(s).`
+        });
+        return;
+      }
+      
+      // Validar quantidade máxima (se configurada)
+      if (validation.maxQuantity && quantity > validation.maxQuantity) {
+        toast({
+          variant: "destructive",
+          title: "Quantidade acima do máximo",
+          description: `Este produto permite quantidade máxima de ${validation.maxQuantity} unidade(s) por pedido.`
+        });
+        setQuantity(Math.min(quantity, validation.maxQuantity));
+        return;
+      }
+      
+      // Tudo validado - adicionar ao carrinho
       addToCart({
         id: product.id,
         name: product.name,
         price: parseFloat(product.price.replace('R$ ', '').replace('.', '').replace(',', '.')),
         image: product.images[0],
-        stock: product.stock,
-        weight: product.weight // Adicionar peso do produto
+        stock: validation.stock,
+        weight: product.weight,
+        sellerId: product.sellerId // ID do vendedor
       }, quantity);
+      
+      toast({
+        title: "Produto adicionado ao carrinho!",
+        description: `${quantity}x ${product.name}`
+      });
       
       // Resetar quantidade após adicionar
       setQuantity(1);
+      
+    } catch (error) {
+      console.error("Erro ao adicionar ao carrinho:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível adicionar o produto ao carrinho. Tente novamente."
+      });
+    } finally {
+      setValidatingProduct(false);
     }
   };
 
@@ -143,6 +249,10 @@ const ProductDetail = () => {
           features: productData.features || [],
           categoryId: productData.categoryId,
           stock: productData.stock || 0,
+          status: productData.status || "active",
+          minQuantity: productData.minQuantity,
+          maxQuantity: productData.maxQuantity,
+          sellerId: productData.sellerId, // ID do vendedor
           weight: productData.weight || 0.5, // Peso em kg
           dimensions: productData.dimensions || { length: 20, width: 15, height: 10 } // Dimensões em cm
         };
@@ -299,11 +409,49 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {product.stock !== undefined && (
+              {/* Alertas de Status e Estoque */}
+              {product.status !== 'active' && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Este produto não está mais disponível para venda.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {product.stock === 0 && product.status === 'active' && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Produto fora de estoque no momento.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {product.stock > 0 && product.stock <= 5 && product.status === 'active' && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Últimas {product.stock} unidades disponíveis!
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {product.stock !== undefined && product.stock > 0 && (
                 <div>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold">Estoque:</span> {product.stock} unidades disponíveis
                   </p>
+                  {product.minQuantity && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold">Quantidade mínima:</span> {product.minQuantity} unidades
+                    </p>
+                  )}
+                  {product.maxQuantity && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold">Quantidade máxima por pedido:</span> {product.maxQuantity} unidades
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -311,17 +459,27 @@ const ProductDetail = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center border rounded">
                 <button 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-3 py-2 hover:bg-muted"
-                  disabled={product.stock === 0}
+                  onClick={() => setQuantity(Math.max(product.minQuantity || 1, quantity - 1))}
+                  className="px-3 py-2 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={product.stock === 0 || product.status !== 'active' || quantity <= (product.minQuantity || 1)}
                 >
                   -
                 </button>
-                <span className="px-4 py-2">{quantity}</span>
+                <span className="px-4 py-2 min-w-[3rem] text-center">{quantity}</span>
                 <button 
-                  onClick={() => setQuantity(Math.min(product.stock || 999, quantity + 1))}
-                  className="px-3 py-2 hover:bg-muted"
-                  disabled={product.stock === 0}
+                  onClick={() => {
+                    const maxAllowed = product.maxQuantity 
+                      ? Math.min(product.stock || 999, product.maxQuantity)
+                      : (product.stock || 999);
+                    setQuantity(Math.min(maxAllowed, quantity + 1));
+                  }}
+                  className="px-3 py-2 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={
+                    product.stock === 0 || 
+                    product.status !== 'active' || 
+                    quantity >= (product.stock || 999) ||
+                    (product.maxQuantity && quantity >= product.maxQuantity)
+                  }
                 >
                   +
                 </button>
@@ -329,11 +487,18 @@ const ProductDetail = () => {
               <Button 
                 size="lg" 
                 className="flex-1" 
-                disabled={product.stock === 0}
+                disabled={product.stock === 0 || product.status !== 'active' || validatingProduct}
                 onClick={handleAddToCart}
               >
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                {product.stock === 0 ? "Fora de Estoque" : "Adicionar ao Carrinho"}
+                {validatingProduct 
+                  ? "Validando..." 
+                  : product.status !== 'active' 
+                    ? "Indisponível"
+                    : product.stock === 0 
+                      ? "Fora de Estoque" 
+                      : "Adicionar ao Carrinho"
+                }
               </Button>
               <Button 
                 variant="outline" 

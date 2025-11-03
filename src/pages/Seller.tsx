@@ -124,11 +124,12 @@ const Seller = () => {
 
     const fetchSales = async () => {
       try {
+        // Buscar TODOS os pedidos confirmados
         const q = query(
           collection(db, "orders"), 
-          where("sellerId", "==", currentUser.uid),
+          where("status", "in", ["confirmed", "shipping", "delivered"]),
           orderBy("createdAt", "desc"),
-          limit(10)
+          limit(50)
         );
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -137,10 +138,21 @@ const Seller = () => {
           for (const orderDoc of snapshot.docs) {
             const orderData = orderDoc.data();
             
+            // Filtrar apenas itens que pertencem ao vendedor atual
+            const sellerItems = (orderData.items || []).filter(item => item.sellerId === currentUser.uid);
+            
+            // Se não há itens do vendedor, pular este pedido
+            if (sellerItems.length === 0) continue;
+            
+            // Calcular total apenas dos itens do vendedor
+            const sellerTotal = sellerItems.reduce((acc, item) => {
+              return acc + (item.price * item.quantity);
+            }, 0);
+            
             // Buscar dados do comprador
             let buyerName = "N/A";
             try {
-              const buyerDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", orderData.buyerId)));
+              const buyerDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", orderData.userId)));
               if (!buyerDoc.empty) {
                 const buyer = buyerDoc.docs[0].data();
                 buyerName = `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.email || "Cliente";
@@ -151,14 +163,15 @@ const Seller = () => {
 
             salesList.push({
               id: orderDoc.id,
-              products: orderData.items || [],
-              total: `R$ ${orderData.totalAmount?.toFixed(2).replace('.', ',') || '0,00'}`,
+              products: sellerItems, // Apenas produtos do vendedor
+              total: `R$ ${sellerTotal.toFixed(2).replace('.', ',')}`,
               buyer: buyerName,
-              address: orderData.shippingAddress ? 
-                `${orderData.shippingAddress.street}, ${orderData.shippingAddress.number}, ${orderData.shippingAddress.city} - ${orderData.shippingAddress.state}` : 
+              address: orderData.address ? 
+                `${orderData.address.street}, ${orderData.address.number}, ${orderData.address.city} - ${orderData.address.state}` : 
                 "Endereço não informado",
               status: orderData.status === "delivered" ? "Entregue" : 
                      orderData.status === "shipping" ? "A caminho" : 
+                     orderData.status === "confirmed" ? "Confirmado" :
                      orderData.status === "cancelled" ? "Cancelada" : "Processando",
               date: orderData.createdAt?.toDate().toLocaleDateString('pt-BR') || new Date().toLocaleDateString('pt-BR')
             });

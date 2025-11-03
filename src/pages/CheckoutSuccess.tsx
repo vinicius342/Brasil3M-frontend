@@ -7,21 +7,109 @@ import Header from "@/components/Header";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { paymentService } from "@/services/paymentService";
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 const CheckoutSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { clearCart } = useCart();
+  const { clearCart, cartItems } = useCart();
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [stockUpdated, setStockUpdated] = useState(false);
 
   // Parâmetros que o MercadoPago retorna
   const paymentId = searchParams.get('payment_id');
   const status = searchParams.get('status');
   const externalReference = searchParams.get('external_reference');
   const merchantOrderId = searchParams.get('merchant_order_id');
+
+  // Função para atualizar estoque dos produtos
+  const updateProductsStock = async (orderItems: any[]) => {
+    const db = getFirestore();
+    
+    console.log('🔄 Atualizando estoque dos produtos...');
+    
+    for (const item of orderItems) {
+      try {
+        const productRef = doc(db, 'products', item.id);
+        const productSnap = await getDoc(productRef);
+        
+        if (!productSnap.exists()) {
+          console.warn(`⚠️ Produto ${item.id} não encontrado`);
+          continue;
+        }
+        
+        const productData = productSnap.data();
+        const currentStock = productData.stock || 0;
+        const currentSalesCount = productData.salesCount || 0;
+        
+        // Calcular novo estoque (não pode ser negativo)
+        const newStock = Math.max(0, currentStock - item.quantity);
+        
+        await updateDoc(productRef, {
+          stock: newStock,
+          salesCount: currentSalesCount + item.quantity,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log(`✅ Produto ${item.name}: estoque ${currentStock} → ${newStock}, vendas: ${currentSalesCount} → ${currentSalesCount + item.quantity}`);
+      } catch (error) {
+        console.error(`❌ Erro ao atualizar estoque do produto ${item.id}:`, error);
+      }
+    }
+    
+    console.log('✅ Atualização de estoque concluída');
+  };
+
+  // Função para atualizar status do pedido no Firestore
+  const updateOrderStatus = async () => {
+    if (!currentUser || !externalReference) return;
+    
+    try {
+      const db = getFirestore();
+      
+      // Buscar pedido pela external_reference
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('external_reference', '==', externalReference),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      if (ordersSnapshot.empty) {
+        console.warn('⚠️ Pedido não encontrado:', externalReference);
+        return;
+      }
+      
+      const orderDoc = ordersSnapshot.docs[0];
+      const orderData = orderDoc.data();
+      
+      // Atualizar status do pedido
+      await updateDoc(doc(db, 'orders', orderDoc.id), {
+        status: 'confirmed',
+        paymentStatus: 'approved',
+        paymentId: paymentId,
+        paidAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('✅ Status do pedido atualizado para confirmed');
+      
+      // Atualizar estoque dos produtos (SE ainda não foi atualizado)
+      if (!stockUpdated && orderData.items) {
+        await updateProductsStock(orderData.items);
+        setStockUpdated(true);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao atualizar pedido:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchPaymentInfo = async () => {
@@ -32,13 +120,29 @@ const CheckoutSuccess = () => {
           if (result.success && result.data) {
             setPaymentInfo(result.data);
             
-            // Limpar carrinho apenas se o pagamento foi aprovado
+            // Se o pagamento foi aprovado
             if (result.data.status === 'approved') {
+              console.log('✅ Pagamento aprovado - Processando pedido...');
+              
+              // 1. Atualizar status do pedido e reduzir estoque
+              await updateOrderStatus();
+              
+              // 2. Limpar carrinho
               clearCart();
+              
+              toast({
+                title: "Pedido confirmado!",
+                description: "Seu pedido foi processado com sucesso."
+              });
             }
           }
         } catch (error) {
           console.error('Erro ao buscar informações do pagamento:', error);
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Erro ao processar informações do pagamento."
+          });
         }
       }
       setLoading(false);

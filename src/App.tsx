@@ -81,7 +81,6 @@ const App = () => (
             <Route path="/auth/melhor-envio/callback" element={<PrivateRoute><MelhorEnvioCallback /></PrivateRoute>} />
             <Route path="/admin/orders" element={<AdminRoute><OrderManagement /></AdminRoute>} />
             <Route path="/config" element={<ShippingConfig />} />
-            <Route path="/test-mercadopago" element={<TestMercadoPago />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

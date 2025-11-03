@@ -13,7 +13,7 @@ import Header from "@/components/Header";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { calculateShipping, searchCEP, ShippingQuote, API_CONFIG } from "@/services/shippingService";
 import { paymentService } from "@/services/paymentService";
 
@@ -335,6 +335,78 @@ const Checkout = () => {
     setLoading(true);
 
     try {
+      // ✅ VALIDAÇÃO DE ESTOQUE E STATUS DOS PRODUTOS
+      const db = getFirestore();
+      const validationErrors: string[] = [];
+      
+      console.log('🔍 Validando estoque e status dos produtos...');
+      
+      for (const item of cartItems) {
+        // Buscar dados atualizados do produto no Firestore
+        const productRef = doc(db, 'products', item.id);
+        const productSnap = await getDoc(productRef);
+        
+        if (!productSnap.exists()) {
+          validationErrors.push(`Produto "${item.name}" não encontrado.`);
+          continue;
+        }
+        
+        const productData = productSnap.data();
+        
+        // 1. Verificar se o produto está ativo
+        if (productData.status !== 'active') {
+          validationErrors.push(`Produto "${item.name}" não está mais disponível para venda.`);
+        }
+        
+        // 2. Verificar estoque disponível
+        if (productData.stock === 0) {
+          validationErrors.push(`Produto "${item.name}" está fora de estoque.`);
+        } else if (productData.stock < item.quantity) {
+          validationErrors.push(
+            `Produto "${item.name}" tem apenas ${productData.stock} unidade(s) disponível(is), mas você tentou comprar ${item.quantity}.`
+          );
+        }
+        
+        // 3. Validar quantidade mínima (opcional - se configurado no produto)
+        if (productData.minQuantity && item.quantity < productData.minQuantity) {
+          validationErrors.push(
+            `Produto "${item.name}" requer quantidade mínima de ${productData.minQuantity} unidade(s).`
+          );
+        }
+        
+        // 4. Validar quantidade máxima (opcional - se configurado no produto)
+        if (productData.maxQuantity && item.quantity > productData.maxQuantity) {
+          validationErrors.push(
+            `Produto "${item.name}" permite quantidade máxima de ${productData.maxQuantity} unidade(s) por pedido.`
+          );
+        }
+      }
+      
+      // Se houver erros de validação, exibir e interromper
+      if (validationErrors.length > 0) {
+        setLoading(false);
+        toast({
+          variant: "destructive",
+          title: "Erro na validação do pedido",
+          description: (
+            <div className="space-y-2">
+              <p className="font-semibold">Os seguintes problemas foram encontrados:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="text-sm">{error}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-sm">Por favor, ajuste seu carrinho e tente novamente.</p>
+            </div>
+          ),
+          duration: 10000 // 10 segundos para dar tempo de ler
+        });
+        return;
+      }
+      
+      console.log('✅ Validações de estoque e status concluídas com sucesso');
+      
+      // Continuar com o checkout normal...
       console.log('🚀 Criando preferência para Checkout Pro...');
       
       // Buscar endereço selecionado

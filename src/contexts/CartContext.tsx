@@ -9,6 +9,7 @@ interface CartItem {
   image: string;
   stock: number;
   weight?: number; // Peso em kg (opcional)
+  sellerId?: string; // ID do vendedor (opcional)
 }
 
 interface CartContextType {
@@ -20,6 +21,7 @@ interface CartContextType {
     image: string;
     stock: number;
     weight?: number;
+    sellerId?: string;
   }, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -70,6 +72,7 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     image: string;
     stock: number;
     weight?: number;
+    sellerId?: string;
   }, quantity = 1) => {
     setCartItems(prevItems => {
       const existingItem = prevItems.find(item => item.id === product.id);
@@ -90,7 +93,8 @@ export const CartProvider = ({ children }: CartProviderProps) => {
           quantity: Math.min(quantity, product.stock),
           image: product.image,
           stock: product.stock,
-          weight: product.weight
+          weight: product.weight,
+          sellerId: product.sellerId
         }];
       }
     });
